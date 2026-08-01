@@ -29,7 +29,9 @@ export interface LabTask {
   id: string;
   title: string;
   environment: 'WebContainers' | 'E2B Sandbox' | 'Modal GPU' | 'Docker / Render' | 'vLLM Engine';
+  workspacePath?: string;
   instructions: string[];
+  validationCommands?: string[];
   expectedOutput: string;
   starterCode: CodeExample;
 }

@@ -209,6 +209,13 @@ export const ModuleView: React.FC<ModuleViewProps> = ({
           </div>
 
           <div className="space-y-3">
+            {module.lab.workspacePath && (
+              <div className="rounded-2xl border border-indigo-100 bg-indigo-50 px-4 py-3">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-700">Workspace</span>
+                <p className="mt-1 font-mono text-xs text-indigo-950">{module.lab.workspacePath}</p>
+              </div>
+            )}
+
             <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Lab Execution Tasks:</h4>
             <ul className="space-y-2">
               {module.lab.instructions.map((inst, idx) => (
@@ -220,7 +227,21 @@ export const ModuleView: React.FC<ModuleViewProps> = ({
             </ul>
           </div>
 
+          {module.lab.validationCommands?.length ? (
+            <div className="rounded-2xl border border-slate-200 bg-slate-950 p-4">
+              <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Validation Commands</span>
+              <pre className="mt-3 whitespace-pre-wrap font-mono text-xs leading-relaxed text-emerald-300">
+                {module.lab.validationCommands.join('\n')}
+              </pre>
+            </div>
+          ) : null}
+
           <CodeBlock example={module.lab.starterCode} onCodeRun={onCodeRun} />
+
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">Expected Output</span>
+            <p className="mt-1 text-xs font-medium text-emerald-950">{module.lab.expectedOutput}</p>
+          </div>
 
           {labOutput && (
             <div className="p-4 bg-slate-950 text-emerald-400 font-mono text-xs rounded-2xl border border-slate-800">
