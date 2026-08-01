@@ -77,7 +77,7 @@ export const AiMentorModal: React.FC<AiMentorModalProps> = ({ isOpen, onClose, c
   const promptTemplates = [
     'Explain FlashAttention-3 TMA asynchronous hardware pipelining.',
     'How does DeepSeek MLA reduce KV cache VRAM by 90%?',
-    'Show a PydanticAI type-safe agent example with result_type.',
+    'Show a PydanticAI type-safe agent example with output_type.',
     'How to prevent Indirect Prompt Injection in autonomous web agents?'
   ];
 
