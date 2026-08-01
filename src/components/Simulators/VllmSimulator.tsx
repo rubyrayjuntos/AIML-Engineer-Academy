@@ -7,23 +7,31 @@ export const VllmSimulator: React.FC = () => {
   const [blockSize, setBlockSize] = useState<16 | 128>(16);
   const [gpuMemoryGb, setGpuMemoryGb] = useState<number>(24); // 24GB RTX 4090 / L4
 
-  // Calculations
-  const totalTokens = numRequests * avgPromptTokens;
-  const bytesPerTokenInKvCache = 2 * 2 * 32 * 128; // fp16, 2 tensors (K,V), 32 layers, 128 head dim = ~524KB per token!
+  // Deterministic request-length distribution centered on the selected average.
+  // PagedAttention allocates blocks per sequence, so aggregating tokens before
+  // rounding would hide the actual source of internal fragmentation.
+  const sequenceLengths = Array.from({ length: numRequests }, (_, index) => {
+    const factor = 0.75 + (index % 9) * 0.0625;
+    return Math.max(1, Math.round(avgPromptTokens * factor));
+  });
+  const totalTokens = sequenceLengths.reduce((sum, tokens) => sum + tokens, 0);
+  const bytesPerTokenInKvCache = 2 * 2 * 32 * 128; // teaching model: fp16 × K/V × 32 layers × 128 elements = 32 KiB/token
   const totalKvMemoryMb = Math.round((totalTokens * bytesPerTokenInKvCache) / (1024 * 1024));
   const totalKvMemoryGb = (totalKvMemoryMb / 1024).toFixed(2);
 
   // Block allocation calculations
-  const totalBlocks = Math.ceil(totalTokens / blockSize);
-  const wastedTokensPerBlock = Math.round(blockSize * 0.08); // average internal fragmentation
-  const totalWastedMb = Math.round(((totalBlocks * wastedTokensPerBlock * bytesPerTokenInKvCache) / (1024 * 1024)));
-  const fragmentationPercent = ((totalWastedMb / Math.max(totalKvMemoryMb, 1)) * 100).toFixed(1);
+  const totalBlocks = sequenceLengths.reduce((sum, tokens) => sum + Math.ceil(tokens / blockSize), 0);
+  const allocatedTokens = totalBlocks * blockSize;
+  const unusedTokens = allocatedTokens - totalTokens;
+  const totalWastedMb = Math.round((unusedTokens * bytesPerTokenInKvCache) / (1024 * 1024));
+  const fragmentationPercent = ((unusedTokens / Math.max(allocatedTokens, 1)) * 100).toFixed(1);
+  const allocatedKvMemoryGb = (allocatedTokens * bytesPerTokenInKvCache) / (1024 * 1024 * 1024);
 
   // Static allocation comparison (legacy PyTorch allocation)
   const legacyStaticMemoryGb = ((numRequests * 2048 * bytesPerTokenInKvCache) / (1024 * 1024 * 1024)).toFixed(2);
   const memorySavingsVsLegacy = (((parseFloat(legacyStaticMemoryGb) - parseFloat(totalKvMemoryGb)) / parseFloat(legacyStaticMemoryGb)) * 100).toFixed(1);
 
-  const isOom = parseFloat(totalKvMemoryGb) > gpuMemoryGb * 0.7; // >70% allocated to KV cache triggers OOM
+  const isOom = allocatedKvMemoryGb > gpuMemoryGb * 0.7; // simplified teaching threshold
 
   return (
     <div className="bg-white border border-slate-200 rounded-3xl p-6 md:p-8 shadow-sm my-6">
@@ -37,7 +45,7 @@ export const VllmSimulator: React.FC = () => {
             KV Cache Memory & Block Size Optimization
           </h3>
           <p className="text-sm text-slate-500 mt-1">
-            Simulate virtual memory page allocation, internal fragmentation, and OOM thresholds across GPU hardware.
+            Model virtual memory page allocation, internal fragmentation, and OOM thresholds across GPU hardware.
           </p>
         </div>
 
@@ -102,7 +110,7 @@ export const VllmSimulator: React.FC = () => {
                   : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
               }`}
             >
-              16 Tokens (Default)
+              16 Tokens
             </button>
             <button
               onClick={() => setBlockSize(128)}
@@ -115,7 +123,7 @@ export const VllmSimulator: React.FC = () => {
               128 Tokens (Large)
             </button>
           </div>
-          <span className="text-[11px] text-slate-400 mt-1 block">16 = minimal fragmentation; 128 = lower table overhead</span>
+          <span className="text-[11px] text-slate-400 mt-1 block">Support and defaults depend on the vLLM version, model kernel, and accelerator.</span>
         </div>
       </div>
 
@@ -124,7 +132,7 @@ export const VllmSimulator: React.FC = () => {
         <div className="mb-6 p-4 bg-rose-50 border border-rose-200 text-rose-800 rounded-2xl flex items-center gap-3 animate-pulse">
           <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />
           <div className="text-xs">
-            <strong className="font-bold">Out-Of-Memory (OOM) Hazard Detected:</strong> KV cache allocation ({totalKvMemoryGb} GB) exceeds safe GPU VRAM budget for {gpuMemoryGb}GB hardware. Reduce concurrent streams or decrease block size.
+            <strong className="font-bold">Modeled OOM Hazard:</strong> allocated KV pages ({allocatedKvMemoryGb.toFixed(2)} GB) exceed this simulator's teaching budget for {gpuMemoryGb}GB hardware. Validate with a real workload before making capacity decisions.
           </div>
         </div>
       )}
@@ -160,11 +168,11 @@ export const VllmSimulator: React.FC = () => {
 
         <div className="p-5 rounded-2xl bg-slate-900 text-white shadow-md">
           <div className="flex justify-between items-center mb-1 text-slate-400">
-            <span className="text-[11px] font-bold uppercase tracking-wider">Savings vs Static PyTorch</span>
+            <span className="text-[11px] font-bold uppercase tracking-wider">Modeled Savings vs Static Allocation</span>
             <Zap className="w-4 h-4 text-indigo-400" />
           </div>
           <div className="text-2xl font-black font-mono text-indigo-400">+{memorySavingsVsLegacy}%</div>
-          <div className="text-[11px] text-slate-400 mt-1">Legacy PyTorch required {legacyStaticMemoryGb} GB</div>
+          <div className="text-[11px] text-slate-400 mt-1">Illustrative maximum-length baseline: {legacyStaticMemoryGb} GB</div>
         </div>
       </div>
 
@@ -200,6 +208,7 @@ export const VllmSimulator: React.FC = () => {
           )}
         </div>
       </div>
+      <p className="mt-4 text-[11px] text-slate-500">Model assumption: request lengths follow a deterministic ±25% distribution around the selected average. Results are estimates, not measured vLLM benchmarks.</p>
     </div>
   );
 };

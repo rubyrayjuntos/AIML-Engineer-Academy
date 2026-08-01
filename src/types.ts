@@ -34,6 +34,12 @@ export interface LabTask {
   starterCode: CodeExample;
 }
 
+export interface CompetencyContract {
+  explain: string[];
+  buildAndDebug: string[];
+  evidenceRequired: string[];
+}
+
 export interface ModuleData {
   id: number;
   slug: string;
@@ -44,6 +50,7 @@ export interface ModuleData {
   estimatedHours: number;
   objectives: string[];
   prerequisites: string[];
+  competencyContract: CompetencyContract;
   sections: {
     title: string;
     content: string;
@@ -69,7 +76,7 @@ export interface SystemEdge {
   from: string;
   to: string;
   label: string;
-  protocol: 'gRPC' | 'HTTP/SSE' | 'stdio' | 'TCP/RDMA' | 'SQL';
+  protocol: 'gRPC' | 'HTTP/SSE' | 'Streamable HTTP' | 'stdio' | 'TCP/RDMA' | 'SQL';
 }
 
 export interface ArchitectureBlueprint {
