@@ -109,30 +109,51 @@ CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "3000"]
       id: 'lab1',
       title: 'Containerized Async Streaming API',
       environment: 'WebContainers',
+      workspacePath: 'labs/module-1-foundations',
       instructions: [
-        'Write an async FastAPI endpoint using asyncio streaming.',
-        'Validate request data using Pydantic schema constraints.',
-        'Test execution output and verify response latency metrics.'
+        'Implement the real FastAPI service in `app/main.py` with `/health` and `/api/v1/generate/stream` endpoints.',
+        'Install `requirements.txt` inside the lab virtual environment and run `pytest -q` to verify SSE output and request validation.',
+        'Build the included multi-stage Docker image to confirm the service can run on port 3000 with only runtime dependencies.'
+      ],
+      validationCommands: [
+        'cd labs/module-1-foundations',
+        'python -m venv .venv',
+        'source .venv/bin/activate',
+        'pip install -r requirements.txt',
+        'pytest -q'
       ],
       expectedOutput: '[SUCCESS] FastAPI server running on port 3000. Streaming tokens verified via SSE event loop.',
       starterCode: {
         id: 'lab1_starter',
-        title: 'FastAPI Starter',
+        title: 'FastAPI Streaming Service',
         language: 'python',
-        filename: 'server.py',
+        filename: 'labs/module-1-foundations/app/main.py',
         code: `import asyncio
+from fastapi import FastAPI
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, Field
 
-async def main():
-    print("Initializing Async Engine...")
-    for i in range(5):
-        await asyncio.sleep(0.05)
-        print(f"Token {i+1}: Chunk emitted asynchronously")
-    print("Stream Completed Successfully")
+app = FastAPI(title="Module 1 Streaming Lab", version="1.0.0")
 
-if __name__ == "__main__":
-    asyncio.run(main())
+class PromptRequest(BaseModel):
+    prompt: str = Field(..., min_length=1, max_length=240)
+    temperature: float = Field(default=0.7, ge=0.0, le=2.0)
+
+async def token_generator(prompt: str):
+    intro = "Processing prompt"
+    for token in [intro, *prompt.split()[:4], "[DONE]"]:
+        await asyncio.sleep(0.01)
+        yield f"data: {token}\\n\\n"
+
+@app.get("/health")
+async def healthcheck():
+    return {"status": "ok"}
+
+@app.post("/api/v1/generate/stream")
+async def stream_generate(req: PromptRequest):
+    return StreamingResponse(token_generator(req.prompt), media_type="text/event-stream")
 `,
-        explanation: 'Demonstrates basic non-blocking event loop execution.'
+        explanation: 'Matches the runnable lab asset under `labs/module-1-foundations` and streams SSE responses with FastAPI.'
       }
     },
     quizzes: [
