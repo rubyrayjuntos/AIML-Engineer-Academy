@@ -48,7 +48,7 @@ export const ReactAgentSimulator: React.FC = () => {
     },
     {
       type: 'THOUGHT',
-      content: 'PydanticAI validation passed (result_type=ExecutiveSummaryReport). Crafting final answer.',
+      content: 'PydanticAI validation passed (output_type=ExecutiveSummaryReport). Crafting final answer.',
       durationMs: 90
     },
     {

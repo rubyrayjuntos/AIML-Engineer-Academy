@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ModuleData, UserProgress } from '../types';
 import { CodeBlock } from './CodeBlock';
-import { BookOpen, Code2, FlaskConical, CheckSquare, CheckCircle2, Play, ArrowRight, ArrowLeft } from 'lucide-react';
+import { BookOpen, Code2, FlaskConical, CheckSquare, CheckCircle2, Play, ArrowRight, ArrowLeft, MessageSquareText, Wrench, FolderCheck } from 'lucide-react';
 
 interface ModuleViewProps {
   module: ModuleData;
@@ -129,6 +129,28 @@ export const ModuleView: React.FC<ModuleViewProps> = ({
           </button>
         </div>
       </div>
+
+      <section className="bg-slate-950 text-white rounded-3xl p-6 md:p-8 shadow-sm border border-slate-800">
+        <div className="mb-5">
+          <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-indigo-300">Evidence-based readiness</span>
+          <h2 className="text-xl font-extrabold mt-1">Competency Contract</h2>
+          <p className="text-xs text-slate-400 mt-1">Completion is informational in Phase 1. These are the capabilities and artifacts required for genuine mastery.</p>
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          {[
+            { title: 'Explain', icon: MessageSquareText, items: module.competencyContract.explain, color: 'text-cyan-300' },
+            { title: 'Build & Debug', icon: Wrench, items: module.competencyContract.buildAndDebug, color: 'text-amber-300' },
+            { title: 'Evidence Required', icon: FolderCheck, items: module.competencyContract.evidenceRequired, color: 'text-emerald-300' }
+          ].map(({ title, icon: Icon, items, color }) => (
+            <div key={title} className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
+              <h3 className={`flex items-center gap-2 text-xs font-bold uppercase tracking-wider ${color}`}><Icon className="w-4 h-4" />{title}</h3>
+              <ul className="mt-3 space-y-2">
+                {items.map(item => <li key={item} className="text-xs leading-relaxed text-slate-300 flex gap-2"><span className="text-slate-600">•</span><span>{item}</span></li>)}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </section>
 
       {/* Tab Content Rendering */}
       {activeTab === 'theory' && (

@@ -32,12 +32,16 @@ export const PromptInjectionSandbox: React.FC = () => {
             Indirect Prompt Injection (IPI) Security Sandbox
           </div>
           <h3 className="text-2xl font-extrabold text-slate-900 tracking-tight">
-            Dual-LLM Firewall Topology Tester
+            Heuristic Detection Baseline & Security Boundary
           </h3>
           <p className="text-sm text-slate-500 mt-1">
-            Test how Minimizer and Sanitizer firewalls isolate privileged primary agents from untrusted external data.
+            Demonstrate why keyword filtering is insufficient, then apply privilege separation and least-privilege boundaries in production.
           </p>
         </div>
+      </div>
+
+      <div className="mb-6 p-4 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-900">
+        <strong>Teaching limitation:</strong> this sandbox uses transparent keyword matching so you can inspect its behavior. Adaptive attacks can bypass it. A production boundary must quarantine untrusted content, validate typed boundary objects, allowlist least-privilege tool operations, and require human approval for consequential actions.
       </div>
 
       {/* Firewall Toggles */}
@@ -105,7 +109,7 @@ export const PromptInjectionSandbox: React.FC = () => {
               ? 'bg-rose-950 text-rose-300 border border-rose-800 animate-pulse'
               : 'bg-blue-950 text-blue-300'
           }`}>
-            {isBlocked ? 'Injections Blocked' : !enableSanitizer ? 'VULNERABLE: Attack Vectors Passed!' : 'Safe Context'}
+            {isBlocked ? 'Heuristic Match Detected' : !enableSanitizer ? 'VULNERABLE: Attack Vectors Passed!' : 'No Heuristic Match'}
           </span>
         </div>
 

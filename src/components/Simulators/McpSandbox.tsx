@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Terminal, Send, Server, Network } from 'lucide-react';
 
 export const McpSandbox: React.FC = () => {
-  const [transport, setTransport] = useState<'stdio' | 'sse'>('stdio');
+  const [transport, setTransport] = useState<'stdio' | 'streamable-http'>('stdio');
   const [selectedMethod, setSelectedMethod] = useState<string>('tools/list');
   const [activePayload, setActivePayload] = useState<string>(
     JSON.stringify({ jsonrpc: '2.0', id: 101, method: 'tools/list', params: {} }, null, 2)
@@ -102,7 +102,7 @@ export const McpSandbox: React.FC = () => {
             Model Context Protocol (MCP) JSON-RPC Inspector
           </div>
           <h3 className="text-2xl font-extrabold text-slate-900 tracking-tight">
-            stdio vs SSE Transport Message Payload Protocol
+            stdio vs Streamable HTTP Message Frames
           </h3>
           <p className="text-sm text-slate-500 mt-1">
             Test Anthropic MCP tool schemas, resource readers, and JSON-RPC 2.0 transport frames.
@@ -122,14 +122,14 @@ export const McpSandbox: React.FC = () => {
             stdio (Subprocess IPC)
           </button>
           <button
-            onClick={() => setTransport('sse')}
+            onClick={() => setTransport('streamable-http')}
             className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
-              transport === 'sse'
+              transport === 'streamable-http'
                 ? 'bg-violet-600 text-white shadow-sm'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            SSE over HTTP (Distributed)
+            Streamable HTTP (Remote)
           </button>
         </div>
       </div>
@@ -172,7 +172,7 @@ export const McpSandbox: React.FC = () => {
               <Send className="w-3.5 h-3.5" /> Client JSON-RPC Request
             </span>
             <span className="text-[10px] uppercase font-mono bg-violet-950 text-violet-300 px-2 py-0.5 rounded">
-              {transport === 'stdio' ? 'stdin pipe' : 'HTTP POST /message'}
+              {transport === 'stdio' ? 'stdin pipe' : 'HTTP POST /mcp'}
             </span>
           </div>
           <pre className="p-3 bg-slate-900/80 rounded-xl font-mono text-xs text-blue-300 overflow-x-auto leading-relaxed border border-slate-800">
@@ -187,7 +187,7 @@ export const McpSandbox: React.FC = () => {
               <Terminal className="w-3.5 h-3.5" /> MCP Server Response Frame
             </span>
             <span className="text-[10px] uppercase font-mono bg-emerald-950 text-emerald-300 px-2 py-0.5 rounded">
-              {transport === 'stdio' ? 'stdout stream' : 'SSE event stream'}
+              {transport === 'stdio' ? 'stdout stream' : 'HTTP response / optional event stream'}
             </span>
           </div>
           <pre className="p-3 bg-slate-900/80 rounded-xl font-mono text-xs text-emerald-400 overflow-x-auto leading-relaxed border border-slate-800">
@@ -195,6 +195,7 @@ export const McpSandbox: React.FC = () => {
           </pre>
         </div>
       </div>
+      <p className="mt-4 text-[11px] text-slate-500">Legacy HTTP+SSE is deprecated and should be retained only for backward compatibility. New remote MCP integrations should use Streamable HTTP.</p>
     </div>
   );
 };
