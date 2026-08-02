@@ -17,3 +17,21 @@ uvicorn app.main:app --reload --port 3000
 pytest -q
 docker build -t module-1-foundations .
 ```
+
+## Run the TF-IDF pipeline
+
+```bash
+python -m app.pipeline
+```
+
+This loads `data/prompts.csv`, cleans text with Pandas, fits a TF-IDF vectorizer and Logistic Regression classifier, prints the classification report, and writes fitted artefacts to `pipeline_artifacts/`.
+
+## Create the v1.0.0 release tag
+
+After CI passes on `main`, create and push the semantic version tag:
+
+```bash
+git tag v1.0.0 $(git rev-parse main)
+git push origin v1.0.0
+```
+

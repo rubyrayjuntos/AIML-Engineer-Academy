@@ -41,6 +41,10 @@ jobs:
         working-directory: labs/module-1-foundations
         run: pytest -q --junitxml=test-results.xml
 
+      - name: Run TF-IDF pipeline
+        working-directory: labs/module-1-foundations
+        run: python -m app.pipeline
+
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
