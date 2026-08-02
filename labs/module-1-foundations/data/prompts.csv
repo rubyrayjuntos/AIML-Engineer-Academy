@@ -1,0 +1,91 @@
+text,label
+How do I measure the faithfulness of a RAG pipeline?,quality
+What metrics should I use to evaluate summarization models?,quality
+My model hallucinated facts in a medical context — how do I reduce this?,quality
+Explain precision versus recall tradeoffs for a retrieval system,quality
+How do I compute BLEU score for translation output?,quality
+What is the difference between exact-match and semantic similarity evaluation?,quality
+My classifier has high accuracy but low F1 — what does that mean?,quality
+How should I split data to avoid label leakage in prompt evaluation?,quality
+What is perplexity and why does it matter for language models?,quality
+How do I build a regression test suite for LLM response quality?,quality
+Describe how to calibrate confidence scores for a generative model,quality
+What does context recall measure in RAG evaluation?,quality
+How do I detect distribution shift between training and inference prompts?,quality
+Explain the bias-variance tradeoff in the context of fine-tuned LLMs,quality
+What sampling strategy reduces variance in benchmark evaluations?,quality
+How do I benchmark embedding models for semantic search?,quality
+Describe an A/B testing framework for comparing two LLM versions,quality
+What role does temperature play in generation diversity metrics?,quality
+How do I set up automated regression checks for hallucination rate?,quality
+What is the difference between offline and online evaluation for LLMs?,quality
+My model generates toxic content despite fine-tuning — what are the causes?,safety
+How do I implement a content moderation layer for a chat application?,safety
+What is prompt injection and how do I defend against it?,safety
+Explain how to use constitutional AI to align model behavior,safety
+How do I red-team a deployed language model for jailbreaks?,safety
+What does it mean for a model to be RLHF-aligned?,safety
+How do I prevent PII leakage from a RAG knowledge base?,safety
+What is reward hacking and how does it affect safety fine-tuning?,safety
+How do I design a refusal mechanism for harmful instruction prompts?,safety
+Explain differential privacy in the context of training data protection,safety
+What safeguards should I add before deploying an autonomous agent?,safety
+How do I audit a model for demographic bias in its outputs?,safety
+Describe a safe deployment strategy for a high-stakes medical LLM,safety
+What is sleeper-agent behavior and how do I test for it?,safety
+How do I enforce output format constraints to prevent injection attacks?,safety
+What logging should I add to detect adversarial prompt patterns in production?,safety
+How do I implement rate limiting to reduce automated abuse of an LLM API?,safety
+Explain how to use output classifiers as a safety guardrail,safety
+What is the difference between safety fine-tuning and runtime filtering?,safety
+How do I test for indirect prompt injection through retrieved documents?,safety
+How do I reduce the latency of a FastAPI streaming endpoint?,performance
+What is continuous batching and how does vLLM implement it?,performance
+Explain the prefill versus decode phase bottleneck in LLM inference,performance
+How do I profile memory usage in a PyTorch training loop?,performance
+What is Flash Attention and how does it improve throughput?,performance
+How do I choose the right batch size for GPU utilization?,performance
+Explain quantization tradeoffs between INT4 INT8 and FP16,performance
+How do I implement connection pooling for a high-traffic AI API?,performance
+What is speculative decoding and when is it beneficial?,performance
+How do I reduce Docker image size for a Python AI service?,performance
+Explain KV cache eviction strategies for long-context inference,performance
+How do I horizontally scale a stateless FastAPI inference service?,performance
+What kernel fusion techniques reduce overhead in transformer inference?,performance
+How do I use asynchronous I/O to maximize GPU utilization?,performance
+Explain the impact of tensor parallelism on multi-GPU serving latency,performance
+What is the difference between eager and compiled execution in PyTorch?,performance
+How do I minimize cold-start time for a containerized LLM service?,performance
+How do I benchmark throughput tokens per second for a deployed model?,performance
+What metrics should I track in a production LLM observability dashboard?,performance
+Explain how to use a CDN for caching deterministic LLM responses,performance
+How do I vectorize text features with TF-IDF for a fast retrieval baseline?,quality
+What is the impact of stopword removal on TF-IDF classification accuracy?,quality
+How do I tune max_features in TfidfVectorizer without overfitting?,quality
+Explain the difference between TF-IDF and BM25 for sparse retrieval,quality
+How do I handle class imbalance in a text classification dataset?,quality
+What preprocessing steps improve TF-IDF performance on noisy text?,quality
+How do I serialize a scikit-learn pipeline artifact for reproducible inference?,quality
+How do I add input validation to prevent oversized payloads in FastAPI?,safety
+What HTTP headers should I set to prevent CORS-based prompt injection?,safety
+How do I implement structured output parsing to reduce injection surface?,safety
+How do I cache TF-IDF vectors to avoid recomputation on every request?,performance
+What is the memory footprint of a TF-IDF matrix for one million documents?,performance
+How do I parallelize Pandas transformations for large text datasets?,performance
+How do I stream large CSV files with Pandas to avoid OOM errors?,performance
+What is the difference between chunked and full-document TF-IDF indexing?,performance
+How do I evaluate whether my TF-IDF baseline is good enough before using embeddings?,quality
+How do I detect data leakage between train and test splits in NLP pipelines?,quality
+What does stratified sampling protect against in imbalanced text datasets?,quality
+How do I measure the impact of text normalization on downstream model quality?,quality
+How do I ensure reproducibility of a scikit-learn training run across machines?,quality
+How do I use GitHub Actions to run automated pytest suites on every push?,performance
+What is the minimum Dockerfile change to make a Python service non-root?,safety
+How do I add a HEALTHCHECK to a Docker container running uvicorn?,performance
+What is semantic versioning and how do I create a Git tag for v1.0.0?,quality
+How do I upload pytest JUnit XML results as a CI artifact in GitHub Actions?,performance
+How do I pin all Python dependencies in requirements.txt for reproducibility?,quality
+How do I configure uvicorn to bind to 0.0.0.0 safely inside a container?,safety
+What is the purpose of a multi-stage Docker build for a Python API?,performance
+How do I pass environment variables securely to a Docker container?,safety
+How do I verify a Docker image was built successfully in a CI pipeline?,performance

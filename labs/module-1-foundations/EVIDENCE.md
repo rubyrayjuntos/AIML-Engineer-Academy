@@ -20,7 +20,7 @@ concrete artifacts that satisfy it.
 | Criterion | Evidence |
 | :--- | :--- |
 | Build an async FastAPI streaming service | `app/main.py` — FastAPI app with `/health` and `/api/v1/generate/stream` endpoints. |
-| Build a Pandas/scikit-learn cleaning pipeline and TF-IDF baseline | Covered in Module 1 curriculum; beyond scope of this runnable lab. |
+| Build a Pandas/scikit-learn cleaning pipeline and TF-IDF baseline | `app/pipeline.py` — loads `data/prompts.csv`, applies Pandas text cleaning, stratified 80/20 split, TF-IDF vectorization (500 features, unigrams + bigrams), Logistic Regression classifier, and prints a classification report with precision/recall/F1 per class. |
 | Test and containerize the service with a multi-stage Docker build | `Dockerfile` (multi-stage, non-root, health-checked) + `tests/` (9 pytest cases). |
 
 ### Evidence Required
@@ -29,7 +29,7 @@ concrete artifacts that satisfy it.
 | :--- | :--- | :--- |
 | Runnable repository and Dockerfile | `app/`, `Dockerfile`, `requirements.txt` | ✅ |
 | Automated test results and evaluation report | CI uploads `test-results.xml` artifact on every run | ✅ |
-| Semantic version tag | `app/main.py` — `version="1.0.0"` in `FastAPI(...)` constructor | ✅ |
+| Semantic version tag | Create a Git tag after CI passes on `main`: `git tag v1.0.0 <sha> && git push origin v1.0.0`. The tag name `v1.0.0` matches the `version` string in `app/main.py`. A plain `version=` string inside application metadata is not a release tag. | ⬜ (tag must be pushed by the author after merge) |
 
 ---
 
@@ -47,6 +47,8 @@ concrete artifacts that satisfy it.
 
 ## Test Coverage Summary
 
+### API tests (`tests/test_main.py`)
+
 | Test | What It Validates |
 | :--- | :--- |
 | `test_healthcheck` | `/health` returns `200 {"status":"ok"}` |
@@ -59,6 +61,21 @@ concrete artifacts that satisfy it.
 | `test_stream_generate_missing_prompt_field` | Missing `prompt` key → 422 |
 | `test_stream_generate_done_token_is_last_frame` | `[DONE]` is the final SSE frame |
 
+### Pipeline tests (`tests/test_pipeline.py`)
+
+| Test | What It Validates |
+| :--- | :--- |
+| `test_clean_text_lowercases` | `clean_text` converts to lowercase |
+| `test_clean_text_removes_special_characters` | Non-alphanumeric characters are stripped |
+| `test_clean_text_strips_whitespace` | Leading/trailing whitespace is removed |
+| `test_load_and_clean_returns_dataframe_with_required_columns` | CSV loads with `text`, `label`, `clean_text` columns |
+| `test_clean_text_column_contains_no_uppercase` | Entire `clean_text` column is lowercase |
+| `test_dataset_has_expected_label_classes` | Labels are exactly `{quality, safety, performance}` |
+| `test_pipeline_is_deterministic` | Same `random_state` yields identical accuracy across two runs |
+| `test_pipeline_produces_non_trivial_accuracy` | Test accuracy exceeds 0.5 baseline |
+| `test_pipeline_returns_report_for_all_label_classes` | Classification report contains F1 for every class |
+| `test_vectorizer_vocabulary_size_respects_max_features` | `max_features` cap is honoured by the vectorizer |
+
 ---
 
 ## CI/CD Pipeline
@@ -70,7 +87,8 @@ Steps executed on every push and pull request:
 1. `npm ci` — reproducible frontend dependency install
 2. `npm run lint` — TypeScript type-check (zero errors gate)
 3. `npm run build` — Vite + esbuild production bundle
-4. `pip install -r requirements.txt` — lab Python dependencies
-5. `pytest -q --junitxml=test-results.xml` — run all 9 lab tests
-6. Upload `test-results.xml` as a named artifact (available even on failure)
-7. `docker build` — validates the hardened multi-stage Dockerfile builds cleanly
+4. `pip install -r requirements.txt` — lab Python dependencies (includes pandas, scikit-learn)
+5. `pytest -q --junitxml=test-results.xml` — run all 19 lab tests (API + pipeline)
+6. `python -m app.pipeline` — executes the TF-IDF pipeline end-to-end and prints the classification report
+7. Upload `test-results.xml` as a named artifact (available even on failure)
+8. `docker build` — validates the hardened multi-stage Dockerfile builds cleanly
