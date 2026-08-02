@@ -39,4 +39,15 @@ jobs:
 
       - name: Run lab tests
         working-directory: labs/module-1-foundations
-        run: pytest -q
+        run: pytest -q --junitxml=test-results.xml
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: module-1-test-results
+          path: labs/module-1-foundations/test-results.xml
+
+      - name: Build Docker image
+        working-directory: labs/module-1-foundations
+        run: docker build --tag module-1-foundations:ci .
