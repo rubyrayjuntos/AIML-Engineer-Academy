@@ -103,7 +103,13 @@ Context module: ${context || 'General AI Engineering'}`;
     // Simulate execution output
     let output = '';
     if (language === 'python') {
-      if (code.includes('vllm') || title?.includes('vLLM')) {
+      if (code.includes('StreamingResponse') || title?.includes('Streaming Service')) {
+        output = `[INFO] Creating FastAPI app instance...
+[INFO] Validating PromptRequest schema constraints...
+[INFO] Exercising /api/v1/generate/stream over text/event-stream
+[INFO] SSE frames emitted: data: Processing | data: prompt | data: [DONE]
+[SUCCESS] FastAPI server running on port 3000. Streaming tokens verified via SSE event loop.`;
+      } else if (code.includes('vllm') || title?.includes('vLLM')) {
         output = `[INFO] Initializing vLLM Engine v0.6.2...
 [INFO] GPU Memory Utilization target: 0.95
 [INFO] PagedAttention Block Size: 16 tokens | Total blocks: 40,960

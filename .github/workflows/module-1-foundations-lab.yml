@@ -1,0 +1,53 @@
+name: Module 1 Foundations Lab
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  validate-module-1-lab:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.2.2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Lint frontend
+        run: npm run lint
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Set up Python
+        uses: actions/setup-python@v5.6.0
+        with:
+          python-version: "3.11"
+
+      - name: Install lab dependencies
+        working-directory: labs/module-1-foundations
+        run: pip install -r requirements.txt
+
+      - name: Run lab tests
+        working-directory: labs/module-1-foundations
+        run: pytest -q --junitxml=test-results.xml
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: module-1-test-results
+          path: labs/module-1-foundations/test-results.xml
+
+      - name: Build Docker image
+        working-directory: labs/module-1-foundations
+        run: docker build --tag module-1-foundations:ci .
