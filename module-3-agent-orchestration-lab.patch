@@ -1,0 +1,768 @@
+From 5a1735aa9ff2c89ab63c709edc2179a520276897 Mon Sep 17 00:00:00 2001
+From: Codex <codex@openai.com>
+Date: Tue, 4 Aug 2026 12:52:10 -0600
+Subject: [PATCH] Add Module 3 governed agent orchestration lab
+
+---
+ .../module-3-agent-orchestration-lab.yml      |  48 ++++++++
+ labs/module-3-agent-orchestration/README.md   |  45 ++++++++
+ .../THREAT_MODEL.md                           |  15 +++
+ .../app/__init__.py                           |   1 +
+ .../module-3-agent-orchestration/app/agent.py |  85 ++++++++++++++
+ .../app/evidence.py                           |  65 +++++++++++
+ .../app/mcp_client.py                         |  34 ++++++
+ .../app/mcp_server.py                         |  35 ++++++
+ .../app/models.py                             |  48 ++++++++
+ .../module-3-agent-orchestration/app/store.py | 106 ++++++++++++++++++
+ .../requirements.txt                          |   3 +
+ .../tests/__init__.py                         |   1 +
+ .../tests/test_agent.py                       | 100 +++++++++++++++++
+ src/data/curriculumData.ts                    |  48 ++++----
+ 14 files changed, 615 insertions(+), 19 deletions(-)
+ create mode 100644 .github/workflows/module-3-agent-orchestration-lab.yml
+ create mode 100644 labs/module-3-agent-orchestration/README.md
+ create mode 100644 labs/module-3-agent-orchestration/THREAT_MODEL.md
+ create mode 100644 labs/module-3-agent-orchestration/app/__init__.py
+ create mode 100644 labs/module-3-agent-orchestration/app/agent.py
+ create mode 100644 labs/module-3-agent-orchestration/app/evidence.py
+ create mode 100644 labs/module-3-agent-orchestration/app/mcp_client.py
+ create mode 100644 labs/module-3-agent-orchestration/app/mcp_server.py
+ create mode 100644 labs/module-3-agent-orchestration/app/models.py
+ create mode 100644 labs/module-3-agent-orchestration/app/store.py
+ create mode 100644 labs/module-3-agent-orchestration/requirements.txt
+ create mode 100644 labs/module-3-agent-orchestration/tests/__init__.py
+ create mode 100644 labs/module-3-agent-orchestration/tests/test_agent.py
+
+diff --git a/.github/workflows/module-3-agent-orchestration-lab.yml b/.github/workflows/module-3-agent-orchestration-lab.yml
+new file mode 100644
+index 0000000..4e3576c
+--- /dev/null
++++ b/.github/workflows/module-3-agent-orchestration-lab.yml
+@@ -0,0 +1,48 @@
++name: Module 3 Agent Orchestration Lab
++
++on:
++  pull_request:
++  push:
++    branches: [main]
++
++permissions:
++  contents: read
++
++jobs:
++  validate-module-3-lab:
++    runs-on: ubuntu-latest
++    steps:
++      - uses: actions/checkout@v4.2.2
++      - uses: actions/setup-node@v4.4.0
++        with:
++          node-version: 22
++          cache: npm
++      - run: npm ci
++      - run: npm run lint
++      - run: npm run build
++      - uses: actions/setup-python@v5.6.0
++        with:
++          python-version: "3.11"
++      - name: Install lab dependencies
++        working-directory: labs/module-3-agent-orchestration
++        run: pip install -r requirements.txt
++      - name: Run deterministic tests
++        working-directory: labs/module-3-agent-orchestration
++        run: pytest -q --junitxml=test-results.xml
++      - name: Generate evidence
++        working-directory: labs/module-3-agent-orchestration
++        run: python -m app.evidence --output artifacts/evidence.json
++      - name: Validate evidence
++        working-directory: labs/module-3-agent-orchestration
++        run: python -m json.tool artifacts/evidence.json
++      - name: Upload test results
++        if: always()
++        uses: actions/upload-artifact@v4
++        with:
++          name: module-3-test-results
++          path: labs/module-3-agent-orchestration/test-results.xml
++      - name: Upload evidence
++        uses: actions/upload-artifact@v4
++        with:
++          name: module-3-evidence
++          path: labs/module-3-agent-orchestration/artifacts/evidence.json
+diff --git a/labs/module-3-agent-orchestration/README.md b/labs/module-3-agent-orchestration/README.md
+new file mode 100644
+index 0000000..745afc5
+--- /dev/null
++++ b/labs/module-3-agent-orchestration/README.md
+@@ -0,0 +1,45 @@
++# Module 3 – Governed Agent Orchestration Lab
++
++This lab is the first executable slice of **Customer Success Autopilot**. It
++retrieves account evidence, produces a typed churn-risk recommendation, persists
++workflow state, and stops at a human approval boundary. It never sends customer
++communications.
++
++## What is real
++
++- SQLite customer/interaction data and FTS5 retrieval
++- source-scoped citations
++- Pydantic output and governance validation
++- a persistent state machine with approval/rejection transitions
++- bounded tool retries, timeouts, and controlled failure states
++- read-only MCP tools plus a client using the current local `stdio` transport
++- deterministic tests and machine-readable evidence
++
++The deterministic `propose()` method is an explicit model seam: it keeps CI
++offline and reproducible while allowing a hosted or local LLM adapter to replace
++recommendation generation later without weakening the output schema or approval
++gate.
++
++## Run
++
++```bash
++cd labs/module-3-agent-orchestration
++python -m venv .venv
++source .venv/bin/activate
++pip install -r requirements.txt
++pytest -q
++python -m app.evidence --output artifacts/evidence.json
++```
++
++To exercise the actual MCP lifecycle, initialize and seed a local database first:
++
++```bash
++python -c "from app.store import Store; s=Store('customer_success.db'); s.initialize(); s.seed()"
++python -m app.mcp_client
++```
++
++## Assessment rubric (100 points)
++
++Ten equally weighted competencies are recorded in the evidence artifact: data,
++retrieval, citations, schemas, orchestration, persistence, resilience, MCP,
++approval governance, and reproducible evidence/threat modeling.
+diff --git a/labs/module-3-agent-orchestration/THREAT_MODEL.md b/labs/module-3-agent-orchestration/THREAT_MODEL.md
+new file mode 100644
+index 0000000..b11732e
+--- /dev/null
++++ b/labs/module-3-agent-orchestration/THREAT_MODEL.md
+@@ -0,0 +1,15 @@
++# Threat model
++
++| Threat | Boundary in this checkpoint | Residual risk / next control |
++|---|---|---|
++| Cross-account data exposure | Every retrieval tool requires and filters by `account_id` | Add authenticated tenant claims and row-level authorization |
++| SQL injection | Callers cannot submit SQL; tool queries are parameterized | Fuzz query parsing and add SQLite authorizer callbacks |
++| Prompt injection in support text | Retrieved text is treated as evidence, never instructions; no outbound tool exists | Add typed content quarantine in Module 4 |
++| Hallucinated evidence | Recommendation requires citations whose IDs originate in retrieval | Add citation-entailment evaluation and abstention thresholds |
++| Runaway tools | Per-call timeout and finite retry budget | Add process isolation, circuit breakers, and telemetry |
++| Invalid model output | Pydantic validates types, bounds, and mandatory approval | Add model repair adapter with a hard retry ceiling |
++| Unauthorized intervention | Workflow stops at `awaiting_approval`; approval only records a decision | Add authenticated approver identity and immutable audit log |
++| MCP privilege escalation | MCP server exposes only two read-only tools over local stdio | Add capability tokens and Streamable HTTP authentication before remote use |
++
++This is a teaching checkpoint, not a production authorization system. It proves
++the control flow and makes the remaining production controls explicit.
+diff --git a/labs/module-3-agent-orchestration/app/__init__.py b/labs/module-3-agent-orchestration/app/__init__.py
+new file mode 100644
+index 0000000..02c4777
+--- /dev/null
++++ b/labs/module-3-agent-orchestration/app/__init__.py
+@@ -0,0 +1 @@
++"""Governed Customer Success agent lab."""
+diff --git a/labs/module-3-agent-orchestration/app/agent.py b/labs/module-3-agent-orchestration/app/agent.py
+new file mode 100644
+index 0000000..3df4e07
+--- /dev/null
++++ b/labs/module-3-agent-orchestration/app/agent.py
+@@ -0,0 +1,85 @@
++from __future__ import annotations
++
++import time
++import uuid
++from concurrent.futures import ThreadPoolExecutor, TimeoutError
++from typing import Callable
++
++from pydantic import ValidationError
++
++from app.models import Citation, Recommendation, RiskLevel, WorkflowResult, WorkflowStatus
++from app.store import Store
++
++
++class ToolFailure(RuntimeError):
++    pass
++
++
++def execute_with_policy(fn: Callable, *args, retries: int = 2, timeout_seconds: float = 1.0):
++    """Run a tool with a bounded timeout and retry budget."""
++    last_error: Exception | None = None
++    for _ in range(retries + 1):
++        pool = ThreadPoolExecutor(max_workers=1)
++        future = pool.submit(fn, *args)
++        try:
++            result = future.result(timeout=timeout_seconds)
++            pool.shutdown(wait=True)
++            return result
++        except (TimeoutError, Exception) as exc:
++            last_error = exc
++            future.cancel()
++            pool.shutdown(wait=False, cancel_futures=True)
++    raise ToolFailure(f"tool failed after {retries + 1} attempts: {last_error}")
++
++
++class CustomerSuccessAgent:
++    """Deterministic state machine; an LLM adapter may replace propose()."""
++
++    def __init__(self, store: Store):
++        self.store = store
++
++    def assess(self, account_id: str, run_id: str | None = None) -> WorkflowResult:
++        run_id = run_id or str(uuid.uuid4())
++        self.store.save_run(run_id, account_id, WorkflowStatus.started.value, {})
++        try:
++            customer = execute_with_policy(self.store.customer, account_id)
++            if customer is None:
++                raise ToolFailure(f"unknown account: {account_id}")
++            evidence = execute_with_policy(
++                self.store.search, account_id, "renewal risk outage reliability executive plan", 3
++            )
++            self.store.save_run(run_id, account_id, WorkflowStatus.evidence_retrieved.value, {"evidence": evidence})
++            recommendation = self.propose(customer, evidence)
++            state = {"recommendation": recommendation.model_dump(mode="json")}
++            self.store.save_run(run_id, account_id, WorkflowStatus.awaiting_approval.value, state)
++            return WorkflowResult(
++                run_id=run_id, status=WorkflowStatus.awaiting_approval, recommendation=recommendation
++            )
++        except (ToolFailure, ValidationError, ValueError) as exc:
++            self.store.save_run(run_id, account_id, WorkflowStatus.failed.value, {"error": str(exc)})
++            return WorkflowResult(run_id=run_id, status=WorkflowStatus.failed, error=str(exc))
++
++    def propose(self, customer: dict, evidence: list[dict]) -> Recommendation:
++        if not evidence:
++            raise ValueError("a recommendation requires retrieved evidence")
++        risk = RiskLevel.high if customer["health_score"] < 40 else RiskLevel.medium
++        citations = [
++            Citation(interaction_id=e["interaction_id"], excerpt=e["content"], score=abs(float(e["score"])))
++            for e in evidence
++        ]
++        return Recommendation(
++            account_id=customer["account_id"], risk=risk,
++            rationale=f"{customer['name']} has health score {customer['health_score']} and documented renewal/reliability concerns.",
++            proposed_action="Prepare an executive recovery review with a named owner and weekly reliability updates.",
++            citations=citations, confidence=0.88 if risk == RiskLevel.high else 0.7,
++        )
++
++    def decide(self, run_id: str, approved: bool) -> WorkflowResult:
++        saved = self.store.load_run(run_id)
++        if not saved or saved["status"] != WorkflowStatus.awaiting_approval.value:
++            raise ValueError("run is not awaiting approval")
++        recommendation = Recommendation.model_validate(saved["state"]["recommendation"])
++        status = WorkflowStatus.approved if approved else WorkflowStatus.rejected
++        self.store.save_run(run_id, saved["account_id"], status.value, saved["state"])
++        # Approval records a decision only. No outbound tool exists in this lab.
++        return WorkflowResult(run_id=run_id, status=status, recommendation=recommendation)
+diff --git a/labs/module-3-agent-orchestration/app/evidence.py b/labs/module-3-agent-orchestration/app/evidence.py
+new file mode 100644
+index 0000000..f5e9219
+--- /dev/null
++++ b/labs/module-3-agent-orchestration/app/evidence.py
+@@ -0,0 +1,65 @@
++from __future__ import annotations
++
++import argparse
++import hashlib
++import json
++from pathlib import Path
++
++from app.agent import CustomerSuccessAgent
++from app.store import Store
++
++
++def generate(output: Path) -> dict:
++    output.parent.mkdir(parents=True, exist_ok=True)
++    db = output.parent / "evidence.db"
++    if db.exists():
++        db.unlink()
++    store = Store(db)
++    store.initialize()
++    store.seed()
++    agent = CustomerSuccessAgent(store)
++    proposed = agent.assess("ACME-001", run_id="evidence-run")
++    approved = agent.decide("evidence-run", approved=True)
++    evidence = {
++        "module": "module-3-agent-orchestration",
++        "deterministic": True,
++        "transport": "stdio",
++        "mcp_tools": ["get_customer", "search_interactions"],
++        "retrieval": {
++            "citation_ids": [c.interaction_id for c in proposed.recommendation.citations],
++            "citation_count": len(proposed.recommendation.citations),
++        },
++        "governance": {
++            "initial_status": proposed.status.value,
++            "decision_status": approved.status.value,
++            "outbound_action_executed": False,
++        },
++        "persistence": store.load_run("evidence-run"),
++        "rubric": [
++            {"competency": "SQLite customer data and FTS retrieval", "points": 10},
++            {"competency": "Grounded citations", "points": 10},
++            {"competency": "Pydantic structured output", "points": 10},
++            {"competency": "Stateful orchestration", "points": 10},
++            {"competency": "Persistent workflow state", "points": 10},
++            {"competency": "Retry and timeout policy", "points": 10},
++            {"competency": "Controlled failure state", "points": 10},
++            {"competency": "MCP stdio server and client", "points": 10},
++            {"competency": "Human approval boundary", "points": 10},
++            {"competency": "Deterministic evidence and threat model", "points": 10},
++        ],
++        "total_points": 100,
++    }
++    canonical = json.dumps(evidence, sort_keys=True, separators=(",", ":"))
++    evidence["checksum"] = hashlib.sha256(canonical.encode()).hexdigest()
++    output.write_text(json.dumps(evidence, indent=2, sort_keys=True))
++    db.unlink()
++    return evidence
++
++
++if __name__ == "__main__":
++    parser = argparse.ArgumentParser()
++    parser.add_argument("--output", type=Path, default=Path("artifacts/evidence.json"))
++    args = parser.parse_args()
++    result = generate(args.output)
++    print(f"Evidence written to {args.output}")
++    print(f"Checksum: {result['checksum']}")
+diff --git a/labs/module-3-agent-orchestration/app/mcp_client.py b/labs/module-3-agent-orchestration/app/mcp_client.py
+new file mode 100644
+index 0000000..a440c90
+--- /dev/null
++++ b/labs/module-3-agent-orchestration/app/mcp_client.py
+@@ -0,0 +1,34 @@
++from __future__ import annotations
++
++import asyncio
++import json
++import os
++import sys
++from pathlib import Path
++
++from mcp import ClientSession, StdioServerParameters
++from mcp.client.stdio import stdio_client
++
++
++async def inspect_account(account_id: str) -> dict:
++    """Exercise a real MCP initialize/list/call lifecycle over stdio."""
++    env = os.environ.copy()
++    root = Path(__file__).resolve().parent.parent
++    env.setdefault("CUSTOMER_SUCCESS_DB", str(root / "customer_success.db"))
++    params = StdioServerParameters(
++        command=sys.executable, args=["-m", "app.mcp_server"], env=env, cwd=root
++    )
++    async with stdio_client(params) as (reader, writer):
++        async with ClientSession(reader, writer) as session:
++            await session.initialize()
++            tools = await session.list_tools()
++            customer = await session.call_tool("get_customer", {"account_id": account_id})
++            return {
++                "transport": "stdio",
++                "tools": sorted(t.name for t in tools.tools),
++                "customer": json.loads(customer.content[0].text),
++            }
++
++
++if __name__ == "__main__":
++    print(json.dumps(asyncio.run(inspect_account("ACME-001")), indent=2))
+diff --git a/labs/module-3-agent-orchestration/app/mcp_server.py b/labs/module-3-agent-orchestration/app/mcp_server.py
+new file mode 100644
+index 0000000..1f294a1
+--- /dev/null
++++ b/labs/module-3-agent-orchestration/app/mcp_server.py
+@@ -0,0 +1,35 @@
++from __future__ import annotations
++
++import json
++import os
++from pathlib import Path
++
++from mcp.server.fastmcp import FastMCP
++
++from app.store import Store
++
++mcp = FastMCP("customer-success-readonly")
++DB_PATH = Path(os.environ.get("CUSTOMER_SUCCESS_DB", "customer_success.db"))
++
++
++def _store() -> Store:
++    store = Store(DB_PATH)
++    store.initialize()
++    return store
++
++
++@mcp.tool()
++def get_customer(account_id: str) -> str:
++    """Read one customer account. This tool cannot mutate customer data."""
++    customer = _store().customer(account_id)
++    return json.dumps(customer or {"error": "not_found"}, sort_keys=True)
++
++
++@mcp.tool()
++def search_interactions(account_id: str, query: str, limit: int = 3) -> str:
++    """Retrieve cited interactions for one account (limit 1..10)."""
++    return json.dumps(_store().search(account_id, query, limit), sort_keys=True)
++
++
++if __name__ == "__main__":
++    mcp.run(transport="stdio")
+diff --git a/labs/module-3-agent-orchestration/app/models.py b/labs/module-3-agent-orchestration/app/models.py
+new file mode 100644
+index 0000000..fce5b56
+--- /dev/null
++++ b/labs/module-3-agent-orchestration/app/models.py
+@@ -0,0 +1,48 @@
++from __future__ import annotations
++
++from enum import Enum
++from pydantic import BaseModel, Field, model_validator
++
++
++class RiskLevel(str, Enum):
++    low = "low"
++    medium = "medium"
++    high = "high"
++
++
++class Citation(BaseModel):
++    interaction_id: int
++    excerpt: str = Field(min_length=1, max_length=280)
++    score: float = Field(ge=0)
++
++
++class Recommendation(BaseModel):
++    account_id: str
++    risk: RiskLevel
++    rationale: str = Field(min_length=20)
++    proposed_action: str = Field(min_length=10)
++    citations: list[Citation] = Field(min_length=1)
++    confidence: float = Field(ge=0, le=1)
++    requires_human_approval: bool = True
++
++    @model_validator(mode="after")
++    def enforce_governance(self) -> "Recommendation":
++        if not self.requires_human_approval:
++            raise ValueError("customer interventions always require human approval")
++        return self
++
++
++class WorkflowStatus(str, Enum):
++    started = "started"
++    evidence_retrieved = "evidence_retrieved"
++    awaiting_approval = "awaiting_approval"
++    approved = "approved"
++    rejected = "rejected"
++    failed = "failed"
++
++
++class WorkflowResult(BaseModel):
++    run_id: str
++    status: WorkflowStatus
++    recommendation: Recommendation | None = None
++    error: str | None = None
+diff --git a/labs/module-3-agent-orchestration/app/store.py b/labs/module-3-agent-orchestration/app/store.py
+new file mode 100644
+index 0000000..d5255b0
+--- /dev/null
++++ b/labs/module-3-agent-orchestration/app/store.py
+@@ -0,0 +1,106 @@
++from __future__ import annotations
++
++import json
++import sqlite3
++from pathlib import Path
++
++
++SCHEMA = """
++CREATE TABLE IF NOT EXISTS customers (
++  account_id TEXT PRIMARY KEY, name TEXT NOT NULL, arr INTEGER NOT NULL,
++  health_score INTEGER NOT NULL CHECK (health_score BETWEEN 0 AND 100)
++);
++CREATE TABLE IF NOT EXISTS interactions (
++  id INTEGER PRIMARY KEY, account_id TEXT NOT NULL, occurred_at TEXT NOT NULL,
++  channel TEXT NOT NULL, content TEXT NOT NULL,
++  FOREIGN KEY(account_id) REFERENCES customers(account_id)
++);
++CREATE VIRTUAL TABLE IF NOT EXISTS interaction_search USING fts5(
++  content, account_id UNINDEXED, interaction_id UNINDEXED
++);
++CREATE TABLE IF NOT EXISTS workflow_runs (
++  run_id TEXT PRIMARY KEY, account_id TEXT NOT NULL, status TEXT NOT NULL,
++  state_json TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
++);
++"""
++
++
++class Store:
++    def __init__(self, path: str | Path):
++        self.path = str(path)
++        self.connection = sqlite3.connect(self.path, check_same_thread=False)
++        self.connection.row_factory = sqlite3.Row
++        self.connection.execute("PRAGMA foreign_keys=ON")
++
++    def initialize(self) -> None:
++        self.connection.executescript(SCHEMA)
++        self.connection.commit()
++
++    def seed(self) -> None:
++        customers = [
++            ("ACME-001", "Acme Health", 420000, 31),
++            ("NOVA-002", "Nova Retail", 180000, 78),
++        ]
++        interactions = [
++            (1, "ACME-001", "2026-07-18", "support", "Third export outage this month; finance cannot close reports."),
++            (2, "ACME-001", "2026-07-24", "email", "Champion says renewal is at risk unless reliability improves before Q4."),
++            (3, "ACME-001", "2026-07-30", "meeting", "Customer requested an executive recovery plan and weekly status updates."),
++            (4, "NOVA-002", "2026-07-22", "support", "Asked how to enable the new dashboard filters; issue resolved in one call."),
++        ]
++        self.connection.executemany("INSERT OR IGNORE INTO customers VALUES (?, ?, ?, ?)", customers)
++        self.connection.executemany("INSERT OR IGNORE INTO interactions VALUES (?, ?, ?, ?, ?)", interactions)
++        for row in interactions:
++            self.connection.execute(
++                "INSERT INTO interaction_search(content, account_id, interaction_id) "
++                "SELECT ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM interaction_search WHERE interaction_id=?)",
++                (row[4], row[1], row[0], row[0]),
++            )
++        self.connection.commit()
++
++    def customer(self, account_id: str) -> dict | None:
++        row = self.connection.execute(
++            "SELECT account_id, name, arr, health_score FROM customers WHERE account_id=?", (account_id,)
++        ).fetchone()
++        return dict(row) if row else None
++
++    def search(self, account_id: str, query: str, limit: int = 3) -> list[dict]:
++        if not 1 <= limit <= 10:
++            raise ValueError("limit must be between 1 and 10")
++        terms = [t.lower() for t in query.split() if t.isalnum() and len(t) > 2]
++        match = " OR ".join(dict.fromkeys(terms)) or "risk"
++        rows = self.connection.execute(
++            """SELECT i.id interaction_id, i.occurred_at, i.channel, i.content,
++                      bm25(interaction_search) score
++                 FROM interaction_search JOIN interactions i
++                   ON i.id=interaction_search.interaction_id
++                WHERE interaction_search MATCH ? AND interaction_search.account_id=?
++                ORDER BY score, i.id LIMIT ?""",
++            (match, account_id, limit),
++        ).fetchall()
++        if not rows:
++            rows = self.connection.execute(
++                "SELECT id interaction_id, occurred_at, channel, content, 100.0 score "
++                "FROM interactions WHERE account_id=? ORDER BY occurred_at DESC LIMIT ?",
++                (account_id, limit),
++            ).fetchall()
++        return [dict(r) for r in rows]
++
++    def save_run(self, run_id: str, account_id: str, status: str, state: dict) -> None:
++        payload = json.dumps(state, sort_keys=True)
++        self.connection.execute(
++            """INSERT INTO workflow_runs(run_id, account_id, status, state_json) VALUES (?, ?, ?, ?)
++               ON CONFLICT(run_id) DO UPDATE SET status=excluded.status,
++                 state_json=excluded.state_json, updated_at=CURRENT_TIMESTAMP""",
++            (run_id, account_id, status, payload),
++        )
++        self.connection.commit()
++
++    def load_run(self, run_id: str) -> dict | None:
++        row = self.connection.execute(
++            "SELECT run_id, account_id, status, state_json FROM workflow_runs WHERE run_id=?", (run_id,)
++        ).fetchone()
++        if not row:
++            return None
++        result = dict(row)
++        result["state"] = json.loads(result.pop("state_json"))
++        return result
+diff --git a/labs/module-3-agent-orchestration/requirements.txt b/labs/module-3-agent-orchestration/requirements.txt
+new file mode 100644
+index 0000000..2f58dfa
+--- /dev/null
++++ b/labs/module-3-agent-orchestration/requirements.txt
+@@ -0,0 +1,3 @@
++mcp==1.12.4
++pydantic==2.11.7
++pytest==8.4.1
+diff --git a/labs/module-3-agent-orchestration/tests/__init__.py b/labs/module-3-agent-orchestration/tests/__init__.py
+new file mode 100644
+index 0000000..8b13789
+--- /dev/null
++++ b/labs/module-3-agent-orchestration/tests/__init__.py
+@@ -0,0 +1 @@
++
+diff --git a/labs/module-3-agent-orchestration/tests/test_agent.py b/labs/module-3-agent-orchestration/tests/test_agent.py
+new file mode 100644
+index 0000000..017aa42
+--- /dev/null
++++ b/labs/module-3-agent-orchestration/tests/test_agent.py
+@@ -0,0 +1,100 @@
++import time
++
++import pytest
++from pydantic import ValidationError
++
++from app.agent import CustomerSuccessAgent, ToolFailure, execute_with_policy
++from app.models import Recommendation
++from app.store import Store
++
++
++@pytest.fixture()
++def store(tmp_path):
++    value = Store(tmp_path / "test.db")
++    value.initialize()
++    value.seed()
++    return value
++
++
++def test_seeded_customer_is_readable(store):
++    assert store.customer("ACME-001")["health_score"] == 31
++
++
++def test_unknown_customer_is_none(store):
++    assert store.customer("NOPE") is None
++
++
++def test_search_is_account_scoped(store):
++    rows = store.search("ACME-001", "renewal risk")
++    assert rows and all(row["interaction_id"] in {1, 2, 3} for row in rows)
++
++
++def test_search_returns_citable_fields(store):
++    assert {"interaction_id", "content", "score"} <= store.search("ACME-001", "outage")[0].keys()
++
++
++def test_search_limit_is_validated(store):
++    with pytest.raises(ValueError):
++        store.search("ACME-001", "risk", 11)
++
++
++def test_agent_proposes_high_risk_governed_action(store):
++    result = CustomerSuccessAgent(store).assess("ACME-001", "run-1")
++    assert result.status.value == "awaiting_approval"
++    assert result.recommendation.risk.value == "high"
++    assert result.recommendation.requires_human_approval is True
++
++
++def test_recommendation_has_grounded_citations(store):
++    result = CustomerSuccessAgent(store).assess("ACME-001", "run-2")
++    assert len(result.recommendation.citations) >= 1
++    assert all(c.interaction_id in {1, 2, 3} for c in result.recommendation.citations)
++
++
++def test_structured_output_rejects_no_approval():
++    with pytest.raises(ValidationError):
++        Recommendation.model_validate({
++            "account_id": "A", "risk": "high", "rationale": "x" * 25,
++            "proposed_action": "review account", "citations": [{"interaction_id": 1, "excerpt": "e", "score": 1}],
++            "confidence": .8, "requires_human_approval": False,
++        })
++
++
++def test_state_persists_across_agent_instances(store):
++    first = CustomerSuccessAgent(store).assess("ACME-001", "persisted")
++    second = CustomerSuccessAgent(store).decide(first.run_id, True)
++    assert second.status.value == "approved"
++    assert store.load_run("persisted")["status"] == "approved"
++
++
++def test_rejection_is_recorded(store):
++    result = CustomerSuccessAgent(store).assess("ACME-001", "rejected")
++    assert CustomerSuccessAgent(store).decide(result.run_id, False).status.value == "rejected"
++
++
++def test_decision_requires_pending_run(store):
++    with pytest.raises(ValueError):
++        CustomerSuccessAgent(store).decide("missing", True)
++
++
++def test_unknown_account_becomes_controlled_failure(store):
++    result = CustomerSuccessAgent(store).assess("NOPE", "failed")
++    assert result.status.value == "failed" and "unknown account" in result.error
++
++
++def test_tool_policy_retries_then_succeeds():
++    calls = {"count": 0}
++    def flaky():
++        calls["count"] += 1
++        if calls["count"] < 2:
++            raise RuntimeError("temporary")
++        return "ok"
++    assert execute_with_policy(flaky, retries=2) == "ok"
++    assert calls["count"] == 2
++
++
++def test_tool_policy_times_out():
++    def slow():
++        time.sleep(.05)
++    with pytest.raises(ToolFailure):
++        execute_with_policy(slow, retries=0, timeout_seconds=.001)
+diff --git a/src/data/curriculumData.ts b/src/data/curriculumData.ts
+index 19a2ef2..9b6a8c1 100644
+--- a/src/data/curriculumData.ts
++++ b/src/data/curriculumData.ts
+@@ -536,32 +536,42 @@ if __name__ == "__main__":
+     ],
+     lab: {
+       id: 'lab3',
+-      title: 'Autonomous SQL Agent with MCP Tooling',
+-      environment: 'E2B Sandbox',
++      title: 'Governed Customer Success Agent with MCP Tooling',
++      environment: 'Local Python',
++      workspacePath: 'labs/module-3-agent-orchestration',
+       instructions: [
+-        'Inspect MCP JSON-RPC 2.0 message handshake.',
+-        'Simulate ReAct agent tool selection and reflection loop.',
+-        'Verify Pydantic schema error capture and recovery.'
++        'cd labs/module-3-agent-orchestration',
++        'python -m venv .venv && source .venv/bin/activate',
++        'pip install -r requirements.txt',
++        'pytest -q',
++        'python -m app.evidence --output artifacts/evidence.json',
++        'Optionally seed customer_success.db and run python -m app.mcp_client to inspect the live stdio MCP lifecycle.'
+       ],
+-      expectedOutput: '[SUCCESS] ReAct Loop Completed. Thought -> Tool Call -> Observation -> Final Answer verified.',
++      validationCommands: ['pytest -q', 'python -m app.evidence --output artifacts/evidence.json'],
++      expectedOutput: '14 passed; evidence shows awaiting_approval -> approved with no outbound action.',
+       starterCode: {
+         id: 'lab3_starter',
+-        title: 'ReAct Loop Stepper',
++        title: 'Governed Orchestration Entry Point',
+         language: 'python',
+-        filename: 'react_sim.py',
+-        code: `def run_react_cycle(user_prompt):
+-    print(f"Goal: {user_prompt}")
+-    print("THOUGHT 1: Need to retrieve user database schema via MCP tool.")
+-    print("ACTION 1: mcp.tools.get_table_schema('users')")
+-    print("OBSERVATION 1: Table schema returned -> id (INT), email (TEXT), status (TEXT)")
+-    print("THOUGHT 2: Crafting SQL query SELECT count(*) FROM users WHERE status='active'.")
+-    print("ACTION 2: mcp.tools.execute_sql('SELECT count(*) FROM users WHERE status=\\'active\\';')")
+-    print("OBSERVATION 2: Result -> 1,420")
+-    print("FINAL ANSWER: There are 1,420 active users in the database.")
++        filename: 'run_agent.py',
++        code: `from app.agent import CustomerSuccessAgent
++from app.store import Store
++
++store = Store("customer_success.db")
++store.initialize()
++store.seed()
++
++agent = CustomerSuccessAgent(store)
++proposal = agent.assess("ACME-001")
++print(proposal.model_dump_json(indent=2))
+ 
+-run_react_cycle("Count active users")
++# A separate human decision is required. This records approval only;
++# the checkpoint intentionally has no outbound messaging tool.
++if proposal.status.value == "awaiting_approval":
++    decision = agent.decide(proposal.run_id, approved=True)
++    print(decision.model_dump_json(indent=2))
+ `,
+-        explanation: 'Demonstrates standard ReAct trace step-by-step execution.'
++        explanation: 'Runs a persistent evidence-retrieval and recommendation state machine that stops at a mandatory human approval boundary.'
+       }
+     },
+     quizzes: [
+-- 
+2.51.1
+
