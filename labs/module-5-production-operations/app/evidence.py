@@ -12,14 +12,31 @@ from app.telemetry import Observation, alerts, summarize
 
 
 def generate(output: Path) -> dict:
-    artifact = b"customer-success-model-v2"
-    model = ModelVersion("churn-risk", "2", "models:/churn-risk/2", hashlib.sha256(artifact).hexdigest())
+    artifact_v1 = b"customer-success-model-v1"
+    model_v1 = ModelVersion("churn-risk", "1", "models:/churn-risk/1", hashlib.sha256(artifact_v1).hexdigest())
+    artifact_v2 = b"customer-success-model-v2"
+    model_v2 = ModelVersion("churn-risk", "2", "models:/churn-risk/2", hashlib.sha256(artifact_v2).hexdigest())
     store = ReleaseStore(output.parent / "release-state.json")
-    if model.version not in store.state()["stages"]:
-        store.register(model, "ci")
+    for model in (model_v1, model_v2):
+        if model.version not in store.state()["stages"]:
+            store.register(model, "ci")
+
     metrics = Evaluation(0.94, 0.91, 0.99, 220, 0.0)
-    if store.state()["stages"][model.version]["stage"] == "candidate":
-        store.promote(model.version, metrics, "ci", "canary")
+
+    if store.state()["stages"]["1"]["stage"] == "candidate":
+        store.promote("1", metrics, "ci", "canary")
+    if store.state()["stages"]["1"]["stage"] == "canary" and store.state()["active"] != "1":
+        store.promote("1", metrics, "approver", "production")
+
+    if store.state()["stages"]["2"]["stage"] == "candidate":
+        store.promote("2", metrics, "ci", "canary")
+    if store.state()["stages"]["2"]["stage"] == "canary":
+        store.promote("2", metrics, "approver", "production")
+
+    if store.state()["active"] == "2" and store.state()["previous"] == "1":
+        store.rollback("oncall", "quality regression")
+
+    model = model_v2
     observations = [Observation(180 + i, True, 0.94, 0.08, 40, 0.001) for i in range(20)]
     telemetry = summarize(observations)
     report = {
