@@ -93,14 +93,17 @@ class ReleaseStore:
         state = self._read()
         if version not in state["stages"]:
             raise KeyError(version)
+        current_stage = state["stages"][version]["stage"]
+        if target == "canary" and current_stage != "candidate":
+            raise ValueError("canary promotion requires candidate stage")
+        if target == "production" and current_stage != "canary":
+            raise ValueError("production promotion requires canary stage")
         gates = evaluate_gates(metrics)
         if not all(gates.values()):
             self._event(state, "promotion_blocked", version, actor, {"gates": gates})
             self._write(state)
             raise ValueError("release gates failed")
         if target == "production":
-            if state["stages"][version]["stage"] != "canary":
-                raise ValueError("production promotion requires canary stage")
             state["previous"] = state["active"]
             state["active"] = version
         state["stages"][version]["stage"] = target
