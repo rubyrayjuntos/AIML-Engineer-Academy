@@ -45,10 +45,13 @@ def build_pipeline(
     df: pd.DataFrame,
     random_state: int = 42,
     max_features: int = 500,
-) -> tuple[TfidfVectorizer, LogisticRegression, dict]:
+) -> tuple[TfidfVectorizer, LogisticRegression, dict, str]:
     """
     Fit a TF-IDF + Logistic Regression pipeline on *df* and return
-    ``(vectorizer, classifier, classification_report_dict)``.
+    ``(vectorizer, classifier, classification_report_dict, classification_report_str)``.
+
+    Both report values are computed on the held-out test split only, so they
+    reflect true generalisation performance without training-data leakage.
 
     The split and both estimators use *random_state* so results are fully
     deterministic when called with the same data and seed.
@@ -72,21 +75,22 @@ def build_pipeline(
     clf = LogisticRegression(solver="liblinear", max_iter=300, random_state=random_state)
     clf.fit(X_train_tfidf, y_train)
 
-    y_pred = clf.predict(X_test_tfidf)
-    report: dict = classification_report(y_test, y_pred, output_dict=True)
+    y_pred_test = clf.predict(X_test_tfidf)
+    report: dict = classification_report(y_test, y_pred_test, output_dict=True)
+    report_str: str = classification_report(y_test, y_pred_test)
 
-    return vectorizer, clf, report
+    return vectorizer, clf, report, report_str
 
 
 if __name__ == "__main__":
     ARTIFACTS_DIR.mkdir(exist_ok=True)
 
     df = load_and_clean()
-    vectorizer, clf, report = build_pipeline(df)
+    vectorizer, clf, report, report_str = build_pipeline(df)
 
     joblib.dump(vectorizer, ARTIFACTS_DIR / "tfidf.joblib")
     joblib.dump(clf, ARTIFACTS_DIR / "classifier.joblib")
 
-    print(classification_report(df["label"], clf.predict(vectorizer.transform(df["clean_text"]))))
+    print(report_str)
     print(f"Test accuracy: {report['accuracy']:.3f}")
     print(f"Artefacts written to {ARTIFACTS_DIR}/")
