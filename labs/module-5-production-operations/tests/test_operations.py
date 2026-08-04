@@ -1,6 +1,10 @@
 import hashlib
+import sys
+from pathlib import Path
 
 import pytest
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.providers import deployment_plan
 from app.release import Evaluation, ModelVersion, ReleaseStore, evaluate_gates, validate_digest
