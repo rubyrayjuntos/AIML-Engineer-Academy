@@ -1,0 +1,63 @@
+name: Module 2 Architecture Lab
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  validate-module-2-lab:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.2.2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Lint frontend
+        run: npm run lint
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Set up Python
+        uses: actions/setup-python@v5.6.0
+        with:
+          python-version: "3.11"
+
+      - name: Install lab dependencies
+        working-directory: labs/module-2-architecture
+        run: pip install -r requirements.txt
+
+      - name: Run lab tests
+        working-directory: labs/module-2-architecture
+        run: pytest -q --junitxml=test-results.xml
+
+      - name: Generate evidence artifact
+        working-directory: labs/module-2-architecture
+        run: python -m app.evidence --output artifacts/evidence.json
+
+      - name: Validate evidence artifact
+        working-directory: labs/module-2-architecture
+        run: python -m json.tool artifacts/evidence.json
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: module-2-test-results
+          path: labs/module-2-architecture/test-results.xml
+
+      - name: Upload evidence artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: module-2-evidence
+          path: labs/module-2-architecture/artifacts/evidence.json

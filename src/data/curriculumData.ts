@@ -334,14 +334,17 @@ print("GRPO Advantages:", adv)
     ],
     lab: {
       id: 'lab2',
-      title: 'Quantization & QLoRA Execution',
-      environment: 'Modal GPU',
+      title: 'LLM Architecture Mechanics Lab',
+      environment: 'Local Python',
+      workspacePath: 'labs/module-2-architecture',
       instructions: [
-        'Inspect QLoRA parameter count reduction.',
-        'Calculate memory footprint savings of 4-bit NF4 vs 16-bit float.',
-        'Verify GGUF conversion CLI options for Edge deployment.'
+        'cd labs/module-2-architecture',
+        'python -m venv .venv && source .venv/bin/activate',
+        'pip install -r requirements.txt',
+        'pytest -q',
+        'python -m app.evidence --output artifacts/evidence.json'
       ],
-      expectedOutput: 'Trainable Parameters: 0.052% of total model. VRAM consumption reduced from 16GB to 5.2GB.',
+      expectedOutput: '13 passed',
       starterCode: {
         id: 'lab2_starter',
         title: 'Quantization Calculator',
