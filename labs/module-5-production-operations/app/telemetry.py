@@ -14,7 +14,7 @@ class Observation:
     cost_usd: float
 
 
-def summarize(items: list[Observation]) -> dict[str, float]:
+def summarize(items: list[Observation]) -> dict[str, float | int]:
     if not items:
         raise ValueError("observations are required")
     latencies = sorted(item.latency_ms for item in items)
@@ -30,7 +30,7 @@ def summarize(items: list[Observation]) -> dict[str, float]:
     }
 
 
-def alerts(summary: dict[str, float]) -> list[str]:
+def alerts(summary: dict[str, float | int]) -> list[str]:
     triggered = []
     if summary["success_rate"] < 0.99:
         triggered.append("error_budget_burn")
