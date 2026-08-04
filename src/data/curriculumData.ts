@@ -536,32 +536,42 @@ if __name__ == "__main__":
     ],
     lab: {
       id: 'lab3',
-      title: 'Autonomous SQL Agent with MCP Tooling',
-      environment: 'E2B Sandbox',
+      title: 'Governed Customer Success Agent with MCP Tooling',
+      environment: 'Local Python',
+      workspacePath: 'labs/module-3-agent-orchestration',
       instructions: [
-        'Inspect MCP JSON-RPC 2.0 message handshake.',
-        'Simulate ReAct agent tool selection and reflection loop.',
-        'Verify Pydantic schema error capture and recovery.'
+        'cd labs/module-3-agent-orchestration',
+        'python -m venv .venv && source .venv/bin/activate',
+        'pip install -r requirements.txt',
+        'pytest -q',
+        'python -m app.evidence --output artifacts/evidence.json',
+        'Optionally seed customer_success.db and run python -m app.mcp_client to inspect the live stdio MCP lifecycle.'
       ],
-      expectedOutput: '[SUCCESS] ReAct Loop Completed. Thought -> Tool Call -> Observation -> Final Answer verified.',
+      validationCommands: ['pytest -q', 'python -m app.evidence --output artifacts/evidence.json'],
+      expectedOutput: '14 passed; evidence shows awaiting_approval -> approved with no outbound action.',
       starterCode: {
         id: 'lab3_starter',
-        title: 'ReAct Loop Stepper',
+        title: 'Governed Orchestration Entry Point',
         language: 'python',
-        filename: 'react_sim.py',
-        code: `def run_react_cycle(user_prompt):
-    print(f"Goal: {user_prompt}")
-    print("THOUGHT 1: Need to retrieve user database schema via MCP tool.")
-    print("ACTION 1: mcp.tools.get_table_schema('users')")
-    print("OBSERVATION 1: Table schema returned -> id (INT), email (TEXT), status (TEXT)")
-    print("THOUGHT 2: Crafting SQL query SELECT count(*) FROM users WHERE status='active'.")
-    print("ACTION 2: mcp.tools.execute_sql('SELECT count(*) FROM users WHERE status=\\'active\\';')")
-    print("OBSERVATION 2: Result -> 1,420")
-    print("FINAL ANSWER: There are 1,420 active users in the database.")
+        filename: 'run_agent.py',
+        code: `from app.agent import CustomerSuccessAgent
+from app.store import Store
 
-run_react_cycle("Count active users")
+store = Store("customer_success.db")
+store.initialize()
+store.seed()
+
+agent = CustomerSuccessAgent(store)
+proposal = agent.assess("ACME-001")
+print(proposal.model_dump_json(indent=2))
+
+# A separate human decision is required. This records approval only;
+# the checkpoint intentionally has no outbound messaging tool.
+if proposal.status.value == "awaiting_approval":
+    decision = agent.decide(proposal.run_id, approved=True)
+    print(decision.model_dump_json(indent=2))
 `,
-        explanation: 'Demonstrates standard ReAct trace step-by-step execution.'
+        explanation: 'Runs a persistent evidence-retrieval and recommendation state machine that stops at a mandatory human approval boundary.'
       }
     },
     quizzes: [

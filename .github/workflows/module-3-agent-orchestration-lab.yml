@@ -1,0 +1,48 @@
+name: Module 3 Agent Orchestration Lab
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate-module-3-lab:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4.2.2
+      - uses: actions/setup-node@v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+      - uses: actions/setup-python@v5.6.0
+        with:
+          python-version: "3.11"
+      - name: Install lab dependencies
+        working-directory: labs/module-3-agent-orchestration
+        run: pip install -r requirements.txt
+      - name: Run deterministic tests
+        working-directory: labs/module-3-agent-orchestration
+        run: pytest -q --junitxml=test-results.xml
+      - name: Generate evidence
+        working-directory: labs/module-3-agent-orchestration
+        run: python -m app.evidence --output artifacts/evidence.json
+      - name: Validate evidence
+        working-directory: labs/module-3-agent-orchestration
+        run: python -m json.tool artifacts/evidence.json
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: module-3-test-results
+          path: labs/module-3-agent-orchestration/test-results.xml
+      - name: Upload evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: module-3-evidence
+          path: labs/module-3-agent-orchestration/artifacts/evidence.json
