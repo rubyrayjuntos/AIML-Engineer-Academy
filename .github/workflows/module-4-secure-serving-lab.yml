@@ -1,0 +1,45 @@
+name: Module 4 Secure Serving Lab
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  validate-module-4-lab:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4.2.2
+      - uses: actions/setup-node@v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+      - uses: actions/setup-python@v5.6.0
+        with:
+          python-version: "3.11"
+      - name: Install lab dependencies
+        working-directory: labs/module-4-secure-serving
+        run: pip install -r requirements.txt
+      - name: Run serving and security tests
+        working-directory: labs/module-4-secure-serving
+        run: pytest -q --junitxml=test-results.xml
+      - name: Run measured benchmark gate
+        working-directory: labs/module-4-secure-serving
+        run: python -m app.benchmark --output artifacts/benchmark.json
+      - name: Generate evidence
+        working-directory: labs/module-4-secure-serving
+        run: python -m app.evidence --output artifacts/evidence.json
+      - name: Validate artifacts
+        working-directory: labs/module-4-secure-serving
+        run: python -m json.tool artifacts/benchmark.json && python -m json.tool artifacts/evidence.json
+      - name: Upload test and benchmark evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: module-4-evidence
+          path: |
+            labs/module-4-secure-serving/test-results.xml
+            labs/module-4-secure-serving/artifacts/*.json

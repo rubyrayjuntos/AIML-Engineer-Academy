@@ -11,3 +11,5 @@ __pycache__/
 !.env.example
 pipeline_artifacts/
 labs/module-2-architecture/artifacts/
+labs/module-3-agent-orchestration/artifacts/
+labs/module-4-secure-serving/artifacts/

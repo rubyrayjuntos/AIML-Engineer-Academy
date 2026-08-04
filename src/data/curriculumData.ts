@@ -623,9 +623,9 @@ if proposal.status.value == "awaiting_approval":
     id: 4,
     slug: 'applied-ai-system-design',
     tag: 'MODULE 04',
-    title: 'Applied AI System Design & Optimization',
-    subtitle: 'vLLM PagedAttention, Disaggregated Inference & Prompt Security',
-    description: 'Design enterprise LLM infrastructure serving millions of requests. Master vLLM PagedAttention, continuous batching, disaggregated prefill/decode, speculative decoding, and Indirect Prompt Injection defenses.',
+    title: 'Secure Model Serving & Measured Benchmarking',
+    subtitle: 'Inference APIs, Concurrency Controls, Load Testing & vLLM Architecture',
+    description: 'Build a secured inference endpoint, generate concurrent load, measure latency and throughput, enforce regression budgets, and connect CPU-verifiable serving mechanics to vLLM production architecture.',
     estimatedHours: 18,
     prerequisites: ['Module 1-3', 'Distributed Systems basics', 'Virtual Memory concepts'],
     competencyContract: {
@@ -637,7 +637,7 @@ if proposal.status.value == "awaiting_approval":
       'Deconstruct vLLM PagedAttention virtual memory block allocation to eliminate KV cache fragmentation',
       'Evaluate supported block sizes for a specific vLLM version, model kernel, and accelerator',
       'Architect Disaggregated Prefill & Decode GPU clusters with FlowKV RDMA streaming',
-      'Implement Dual-LLM Privilege Control (Minimizer & Sanitizer firewalls) against Indirect Prompt Injection'
+      'Implement production serving boundaries: authentication, request limits, timeouts, concurrency control, rate limiting, and measurable performance gates'
     ],
     sections: [
       {
@@ -722,37 +722,33 @@ print("Sanitized Output for Privileged Agent:", safe_context)
     ],
     lab: {
       id: 'lab4',
-      title: 'vLLM Latency & Memory Benchmark Simulator',
-      environment: 'vLLM Engine',
+      title: 'Secure Inference & Benchmarking Lab',
+      environment: 'Local Python',
+      workspacePath: 'labs/module-4-secure-serving',
       instructions: [
-        'Compare supported block sizes for the selected vLLM/hardware configuration.',
-        'Observe Time-To-First-Token (TTFT) vs Inter-Token Latency (ITL).',
-        'Demonstrate a heuristic prompt-injection filter and document how adaptive attacks bypass it.'
+        'Run the authenticated FastAPI inference endpoint and verify strict request/security boundaries.',
+        'Generate concurrent load and measure p50/p95/p99 latency plus requests per second.',
+        'Enforce explicit performance budgets and generate machine-readable evidence without claiming unmeasured GPU results.'
       ],
-      expectedOutput: 'PagedAttention Block Size 16 verified. Memory fragmentation: 0.8%. 0 OOM events under 256 concurrent requests.',
+      validationCommands: [
+        'cd labs/module-4-secure-serving',
+        'python -m venv .venv && source .venv/bin/activate',
+        'pip install -r requirements.txt',
+        'pytest -q',
+        'python -m app.benchmark --output artifacts/benchmark.json',
+        'python -m app.evidence --output artifacts/evidence.json'
+      ],
+      expectedOutput: 'Serving/security tests pass; measured benchmark meets error-rate, p95 latency, and throughput budgets.',
       starterCode: {
         id: 'lab4_starter',
-        title: 'vLLM Benchmarking Script',
+        title: 'Measured Serving Benchmark',
         language: 'python',
-        filename: 'vllm_bench.py',
-        code: `import math
-
-def simulate_paged_attention(sequence_lengths, block_size):
-    blocks_needed = sum(math.ceil(tokens / block_size) for tokens in sequence_lengths)
-    used_tokens = sum(sequence_lengths)
-    allocated_tokens = blocks_needed * block_size
-    unused_tokens = allocated_tokens - used_tokens
-    fragmentation = unused_tokens / allocated_tokens if allocated_tokens else 0
-    print(f"Requests: {len(sequence_lengths)} | Block Size: {block_size}")
-    print(f"Total Physical Blocks Allocated: {blocks_needed}")
-    print(f"Unused Token Slots: {unused_tokens}")
-    print(f"Modeled Internal Fragmentation: {fragmentation:.2%}")
-
-lengths = [377, 512, 641, 901]
-simulate_paged_attention(lengths, 16)
-simulate_paged_attention(lengths, 128)
+        filename: 'labs/module-4-secure-serving/app/benchmark.py',
+        code: `report = await run_benchmark(requests=40, concurrency=8)
+gates = evaluate_budgets(report)
+assert all(gates.values()), {"results": report["results"], "gates": gates}
 `,
-        explanation: 'Calculates block allocation and internal fragmentation differences.'
+        explanation: 'Runs concurrent requests through the real ASGI inference path, records percentile latency and throughput, and fails on explicit regression budgets.'
       }
     },
     quizzes: [
@@ -789,7 +785,7 @@ simulate_paged_attention(lengths, 128)
         term: 'PagedAttention',
         category: 'Inference Optimization',
         definition: 'An algorithm in vLLM that partitions the KV cache into fixed-size physical memory blocks allocated dynamically on demand.',
-        keyTakeaway: 'Virtually eliminates memory fragmentation, allowing up to 2-4x higher batch concurrency.'
+        keyTakeaway: 'Reduces KV-cache allocation waste and can increase concurrency; the realized gain must be measured for the deployed model, runtime, and hardware.'
       },
       {
         id: 'fc4_2',
