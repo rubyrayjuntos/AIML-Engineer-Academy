@@ -802,19 +802,19 @@ assert all(gates.values()), {"results": report["results"], "gates": gates}
     tag: 'MODULE 05',
     title: 'Cloud Deployment, Evaluation & Productionization',
     subtitle: 'Evaluation-Driven Development (EDD), CI/CD & Observability',
-    description: 'Productionize AI systems with continuous evaluation and cloud monitoring. Master Evaluation-Driven Development (EDD) with DeepEval & Promptfoo, CI/CD regression gates, and OpenTelemetry tracing.',
+    description: 'Productionize AI systems with immutable model versions, evaluation gates, staged Azure AI Foundry and Databricks release plans, operational telemetry, and tested rollback.',
     estimatedHours: 14,
     prerequisites: ['Module 1-4', 'Docker', 'CI/CD concepts'],
     competencyContract: {
       explain: ['CI/CD evaluation gates and Kubernetes/serverless tradeoffs', 'Autoscaling signals, rollout/rollback, and observability', 'Model/data drift, cost controls, and SLOs'],
-      buildAndDebug: ['Build an evaluation suite and CI gate', 'Deploy a container and capture OpenTelemetry traces', 'Configure custom metrics and exercise rollback'],
-      evidenceRequired: ['Deployed endpoint and workflow file', 'Trace evidence and operational runbook', 'Cost estimate and release report']
+      buildAndDebug: ['Build an evaluation suite and CI gate', 'Generate credential-free Azure AI Foundry and Databricks deployment plans', 'Configure custom metrics and exercise a state-restoring rollback'],
+      evidenceRequired: ['Release workflow and immutable artifact record', 'Telemetry evidence and operational runbook', 'Cost, gate, audit, and rollback report']
     },
     objectives: [
       'Implement Evaluation-Driven Development (EDD) pipelines using DeepEval and Promptfoo',
       'Construct LLM-as-a-judge evaluation metrics (Faithfulness, Contextual Relevancy, G-Eval)',
-      'Deploy Dockerized agent APIs to cloud infrastructure (Render / GCP / AWS Kubernetes)',
-      'Set up OpenTelemetry distributed tracing to monitor agent steps and GPU KV cache utilization'
+      'Map immutable model releases to Azure AI Foundry and Databricks serving endpoints using workload identity',
+      'Capture latency, errors, quality, drift, token use, and cost telemetry and execute a tested rollback'
     ],
     sections: [
       {
@@ -913,35 +913,44 @@ jobs:
     ],
     lab: {
       id: 'lab5',
-      title: 'CI/CD Evaluation & Deployment Gate',
-      environment: 'Docker / Render',
+      title: 'Production Release, Observability & Rollback',
+      environment: 'Local Python',
+      workspacePath: 'labs/module-5-production-operations',
       instructions: [
-        'Inspect DeepEval faithfulness scoring rubric.',
-        'Simulate CI/CD regression test run on prompt updates.',
-        'Verify production endpoint deployment logs.'
+        'Run the deterministic release, telemetry, provider-plan, and rollback tests.',
+        'Generate machine-readable evidence without cloud credentials or false deployment claims.',
+        'Inspect the runbook, then map the approved release to Azure AI Foundry or Databricks using workload identity.'
       ],
-      expectedOutput: '[CI/CD] DeepEval Suite Passed: 100% Faithfulness (1.0/1.0), Relevancy (0.95/1.0). Deployment Gate: CLEARED.',
+      validationCommands: [
+        'cd labs/module-5-production-operations',
+        'python -m venv .venv && source .venv/bin/activate',
+        'pip install -r requirements.txt',
+        'pytest -q',
+        'python -m app.evidence --output artifacts/evidence.json'
+      ],
+      expectedOutput: '17 passed; evidence records passing gates, telemetry, provider plans, and no cloud-deployment claim.',
       starterCode: {
         id: 'lab5_starter',
-        title: 'Evaluation Judge Simulator',
+        title: 'Release Gate Evaluator',
         language: 'python',
-        filename: 'eval_judge.py',
-        code: `def evaluate_faithfulness(context_str, answer_str):
-    """Simulates LLM-as-a-judge scoring algorithm."""
-    claims = answer_str.split(".")
-    supported = 0
-    for claim in claims:
-        if claim.strip() and claim.strip().lower() in context_str.lower():
-            supported += 1
-    score = supported / max(len(claims) - 1, 1)
-    print(f"Context: {context_str}")
-    print(f"Answer: {answer_str}")
-    print(f"Faithfulness Score: {score:.2f} / 1.00")
-    return score >= 0.8
+        filename: 'release_gate.py',
+        code: `def release_gates(metrics):
+    return {
+        "faithfulness": metrics["faithfulness"] >= 0.90,
+        "safety": metrics["safety"] >= 0.98,
+        "latency": metrics["p95_ms"] <= 750,
+        "reliability": metrics["error_rate"] <= 0.01,
+    }
 
-evaluate_faithfulness("User balance is $500", "The user balance is $500")
+results = release_gates({
+    "faithfulness": 0.94,
+    "safety": 0.99,
+    "p95_ms": 220,
+    "error_rate": 0.0,
+})
+assert all(results.values())
 `,
-        explanation: 'Simulates factual claim verification against context.'
+        explanation: 'Uses explicit quality and operational thresholds to block unsafe or regressed releases before canary promotion.'
       }
     },
     quizzes: [
