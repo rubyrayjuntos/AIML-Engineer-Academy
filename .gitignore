@@ -10,3 +10,4 @@ __pycache__/
 .env*
 !.env.example
 pipeline_artifacts/
+labs/module-2-architecture/artifacts/

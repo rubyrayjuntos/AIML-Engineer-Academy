@@ -28,7 +28,7 @@ export interface Flashcard {
 export interface LabTask {
   id: string;
   title: string;
-  environment: 'WebContainers' | 'E2B Sandbox' | 'Modal GPU' | 'Docker / Render' | 'vLLM Engine';
+  environment: 'WebContainers' | 'E2B Sandbox' | 'Modal GPU' | 'Docker / Render' | 'vLLM Engine' | 'Local Python';
   workspacePath?: string;
   instructions: string[];
   validationCommands?: string[];
