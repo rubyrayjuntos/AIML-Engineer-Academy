@@ -1,24 +1,28 @@
 # Module 3 – Governed Agent Orchestration Lab
 
-This lab is the first executable slice of **Customer Success Autopilot**. It
-retrieves account evidence, produces a typed churn-risk recommendation, persists
-workflow state, and stops at a human approval boundary. It never sends customer
-communications.
+This lab has two aligned lanes:
+
+1. **Customer Success Autopilot** — retrieve account evidence, emit a typed
+   churn-risk recommendation, persist workflow state, and stop at a human
+   approval boundary (never sends customer communications).
+2. **Read-only SQL / MCP lane** — `SQLQueryResult` structured output (PydanticAI
+   `output_type` shape), SQL firewall, analytics SQLite, MCP tools
+   `get_table_schema` / `execute_readonly_sql`, plus a DSPy-style compile stub.
 
 ## What is real
 
 - SQLite customer/interaction data and FTS5 retrieval
-- source-scoped citations
-- Pydantic output and governance validation
-- a persistent state machine with approval/rejection transitions
-- bounded tool retries, timeouts, and controlled failure states
-- read-only MCP tools plus a client using the current local `stdio` transport
+- source-scoped citations and HITL approval governance
+- Pydantic schemas for CS recommendations and SQL query results
+- read-only MCP tools (CS + SQL) over the local `stdio` transport
+- SQL injection / stacking / write rejection
+- offline DSPy BootstrapFewShot teaching stub (`app/dspy_compile.py`)
 - deterministic tests and machine-readable evidence
 
-The deterministic `propose()` method is an explicit model seam: it keeps CI
-offline and reproducible while allowing a hosted or local LLM adapter to replace
-recommendation generation later without weakening the output schema or approval
-gate.
+The deterministic `propose()` seams (CS and SQL) keep CI offline while matching
+the curriculum’s PydanticAI structured-output shape. Swap in a hosted
+`pydantic_ai.Agent` when an API key is available without weakening schemas or
+firewalls.
 
 ## Run
 
@@ -31,15 +35,18 @@ pytest -q
 python -m app.evidence --output artifacts/evidence.json
 ```
 
-To exercise the actual MCP lifecycle, initialize and seed a local database first:
+Expected test result: **22 passed**
+
+Optional MCP lifecycle smoke:
 
 ```bash
 python -c "from app.store import Store; s=Store('customer_success.db'); s.initialize(); s.seed()"
+python -c "from app.sql_store import AnalyticsStore; s=AnalyticsStore('analytics.db'); s.initialize(); s.seed()"
 python -m app.mcp_client
 ```
 
 ## Assessment rubric (100 points)
 
-Ten equally weighted competencies are recorded in the evidence artifact: data,
-retrieval, citations, schemas, orchestration, persistence, resilience, MCP,
-approval governance, and reproducible evidence/threat modeling.
+Competencies recorded in the evidence artifact cover CS retrieval/governance,
+MCP CS+SQL tools, read-only SQL firewall + repair, DSPy compile stub, and
+threat-model/evidence hygiene.

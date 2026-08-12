@@ -558,24 +558,30 @@ print("diffusion schedule ok", round(float(alpha_bar[-1]), 6))
     estimatedHours: 18,
     prerequisites: ['Module 1 & 2', 'JSON Schema', 'Python Type Hints'],
     competencyContract: {
-      explain: ['ReAct loops, state machines, RAG versus fine-tuning, and agent memory', 'MCP primitives and current transports', 'Structured output, retries, human approval boundaries, and browser/computer-use action spaces'],
-      buildAndDebug: ['Build a PydanticAI structured-output agent', 'Connect an MCP server and client to a read-only SQLite tool', 'Design a governed browser-tool loop with untrusted page observations and write-action approval'],
-      evidenceRequired: ['Runnable agent repository and MCP protocol trace', 'Agent tests and example evaluation set', 'Threat model covering tool and browser IPI surfaces']
+      explain: ['ReAct loops, DSPy-style prompt compilation, state machines, RAG versus fine-tuning, and agent memory', 'MCP primitives and current transports', 'Structured output (PydanticAI shape), SQL read-only firewalls, retries, human approval boundaries, and browser/computer-use action spaces'],
+      buildAndDebug: ['Build a Pydantic structured-output agent (CS HITL + SQLQueryResult seam)', 'Connect an MCP server/client to read-only SQLite CS and SQL tools', 'Design a governed browser-tool loop with untrusted page observations and write-action approval'],
+      evidenceRequired: ['Runnable agent repository and MCP protocol trace', 'Agent tests covering CS governance plus SQL firewall/repair', 'Threat model covering tool, SQL, and browser IPI surfaces']
     },
     objectives: [
       'Master the ReAct (Reasoning + Acting) loop mechanics and reflection loops',
+      'Compile prompts with a DSPy-style metric + trainset (BootstrapFewShot teaching stub) instead of vibe edits',
       'Implement MCP servers using stdio locally and Streamable HTTP remotely',
-      'Build deterministic, type-safe tool-calling agents using PydanticAI with output_type validation',
+      'Build deterministic, type-safe tool-calling agents using PydanticAI-shaped output_type validation',
+      'Align text-to-SQL with schema MCP tools, RO execution, and repair loops (bp_sql_agent)',
       'Construct cyclic multi-agent state machines using LangGraph with human-in-the-loop nodes',
       'Design browser / computer-use agents with least-privilege tools, a11y observations, and HITL gates for consequential actions'
     ],
     sections: [
       {
-        title: '3.1 ReAct Reasoning Loops & DSPy Prompt Compilation',
+        title: '3.1 ReAct Reasoning Loops & DSPy Prompt Optimization',
         content: `Autonomous agents rely on structured cognitive loops to break down complex goals:
 
 - **ReAct Pattern:** Interleaves **Thought** (internal reasoning step), **Action** (calling an external API/tool), and **Observation** (processing tool output) until reaching a final answer.
-- **DSPy Compilation:** Replaces manual prompt engineering by treating prompts as compiled pipelines. DSPy optimizes prompt instructions and few-shot examples automatically based on mathematical metrics.`
+- **DSPy Compilation:** Treat prompts as **compiled programs**, not hand-edited strings:
+  - Define a **signature** (inputs/outputs), a **metric** (e.g. exact SQL match, faithfulness), and a small **trainset**.
+  - Optimizers such as **BootstrapFewShot** (or MIPRO-style search) select instructions and demonstrations that raise the metric.
+  - **Compile once, freeze for prod** — ship the compiled instruction+demos; do not re-optimize on every user request.
+  - Contrast with vibe-based prompt edits: DSPy makes prompt quality an explicit, testable optimization problem.`
       },
       {
         title: '3.2 Factual Grounding: RAG vs. Fine-Tuning Matrix',
@@ -603,11 +609,17 @@ print("diffusion schedule ok", round(float(alpha_bar[-1]), 6))
 - **Legacy HTTP+SSE:** Deprecated and retained only for backward compatibility; new remote implementations should not adopt it.`
       },
       {
-        title: '3.4 Type-Safe Agents: PydanticAI & LangGraph',
+        title: '3.4 Type-Safe Agents: PydanticAI, LangGraph & Text-to-SQL',
         content: `Production agent frameworks must enforce strict execution boundaries:
 
 - **PydanticAI:** Uses Python type hints and Pydantic \`output_type\` schemas. If an LLM returns malformed structured output, PydanticAI can return validation feedback to the model and retry within configured limits.
-- **LangGraph:** Conceptualizes agent workflows as directed cyclic graphs. Essential for multi-agent loops with persistent state checkpoints, branching logic, and human approval gates.`
+- **LangGraph:** Conceptualizes agent workflows as directed cyclic graphs. Essential for multi-agent loops with persistent state checkpoints, branching logic, and human approval gates.
+- **Text-to-SQL topology (aligns with System Design \`bp_sql_agent\`):**
+  1. Schema minimizer / MCP \`get_table_schema\` loads only needed DDL.
+  2. Agent emits a typed \`SQLQueryResult\` (explanation + SQL + confidence).
+  3. Firewall rejects writes, \`PRAGMA\`, and statement stacking; enforce a query timeout.
+  4. Execute on a **read-only** replica; on engine errors, feed the error back for a bounded repair loop.
+  5. Lab CI uses a deterministic \`propose()\` seam with the same schema — swap in live \`pydantic_ai.Agent\` when an API key is present.`
       },
       {
         title: '3.5 Browser & Computer-Use Agents (Action Spaces, Observation, Governance)',
@@ -732,11 +744,40 @@ print(plan_tool(BrowserToolCall(action=BrowserAction.EXTRACT_A11Y, selector="mai
 print(plan_tool(BrowserToolCall(action=BrowserAction.TYPE, selector="textbox:Search", text="Acme", requires_approval=True)))
 `,
         explanation: 'Defines a least-privilege browser tool schema. Real Playwright/CDP runtimes plug in behind this boundary; CI should not require a live browser.'
+      },
+      {
+        id: 'c3_dspy_bootstrap',
+        title: 'DSPy-Style BootstrapFewShot Teaching Stub',
+        language: 'python',
+        filename: 'dspy_compile.py',
+        code: `from dataclasses import dataclass
+
+@dataclass(frozen=True)
+class Example:
+    question: str
+    gold_sql: str
+
+def metric_exact_select(pred_sql: str, gold_sql: str) -> float:
+    return float(pred_sql.strip().lower().rstrip(";") == gold_sql.strip().lower().rstrip(";"))
+
+def bootstrap_fewshot(trainset: list[Example], seed_instruction: str, k: int = 3) -> dict:
+    """Teaching stand-in for DSPy BootstrapFewShot — no dspy package required."""
+    demos = [ex for ex in trainset if ex.gold_sql.lower().lstrip().startswith("select")][:k]
+    return {"instruction": seed_instruction, "demos": demos, "metric": "exact_select"}
+
+train = [
+    Example("count users", "SELECT COUNT(*) FROM users"),
+    Example("revenue", "SELECT SUM(amount) FROM orders"),
+]
+compiled = bootstrap_fewshot(train, "Emit one read-only SELECT.", k=2)
+print(compiled["instruction"], len(compiled["demos"]), metric_exact_select(train[0].gold_sql, train[0].gold_sql))
+`,
+        explanation: 'Shows the DSPy idea — metric + trainset → compiled instruction/demos — as an offline stub matching the Module 3 lab helper.'
       }
     ],
     lab: {
       id: 'lab3',
-      title: 'Governed Customer Success Agent with MCP Tooling',
+      title: 'Governed Agents: Customer Success HITL + Read-Only SQL/MCP',
       environment: 'Local Python',
       workspacePath: 'labs/module-3-agent-orchestration',
       instructions: [
@@ -745,33 +786,33 @@ print(plan_tool(BrowserToolCall(action=BrowserAction.TYPE, selector="textbox:Sea
         'pip install -r requirements.txt',
         'pytest -q',
         'python -m app.evidence --output artifacts/evidence.json',
-        'Optionally seed customer_success.db and run python -m app.mcp_client to inspect the live stdio MCP lifecycle.'
+        'Optionally seed DBs and run python -m app.mcp_client to inspect the live stdio MCP lifecycle (CS + SQL tools).'
       ],
       validationCommands: ['pytest -q', 'python -m app.evidence --output artifacts/evidence.json'],
-      expectedOutput: '14 passed; evidence shows awaiting_approval -> approved with no outbound action.',
+      expectedOutput: '22 passed; evidence shows CS awaiting_approval -> approved plus sql_mcp_lane status ok.',
       starterCode: {
         id: 'lab3_starter',
-        title: 'Governed Orchestration Entry Point',
+        title: 'SQL Lane Smoke + CS Approval Gate',
         language: 'python',
-        filename: 'run_agent.py',
-        code: `from app.agent import CustomerSuccessAgent
-from app.store import Store
+        filename: 'labs/module-3-agent-orchestration/app/sql_agent.py',
+        code: `from app.sql_agent import SqlAgent
+from app.sql_store import AnalyticsStore
+from app.dspy_compile import Example, bootstrap_fewshot
 
-store = Store("customer_success.db")
-store.initialize()
-store.seed()
+store = AnalyticsStore("analytics.db")
+store.initialize(); store.seed()
+result = SqlAgent(store).run("What is total order revenue?")
+assert result["status"] == "ok"
+print(result["result"]["sql_query"], result["rows"])
 
-agent = CustomerSuccessAgent(store)
-proposal = agent.assess("ACME-001")
-print(proposal.model_dump_json(indent=2))
-
-# A separate human decision is required. This records approval only;
-# the checkpoint intentionally has no outbound messaging tool.
-if proposal.status.value == "awaiting_approval":
-    decision = agent.decide(proposal.run_id, approved=True)
-    print(decision.model_dump_json(indent=2))
+compiled = bootstrap_fewshot(
+    [Example("count users", "SELECT COUNT(*) FROM users")],
+    seed_instruction="Emit one read-only SELECT.",
+    k=1,
+)
+print(compiled.render())
 `,
-        explanation: 'Runs a persistent evidence-retrieval and recommendation state machine that stops at a mandatory human approval boundary.'
+        explanation: 'Smoke-checks the SQLQueryResult seam, RO executor, and DSPy compile stub alongside the existing Customer Success HITL path.'
       }
     },
     quizzes: [
@@ -852,6 +893,32 @@ if proposal.status.value == "awaiting_approval":
         answerIndex: 2,
         explanation: 'Write actions need HITL; untrusted page text must not directly control privileged tools. Prefer allowlisted origins and least-privilege typed tools.',
         concept: 'Browser Agent Governance'
+      },
+      {
+        id: 'q3_7',
+        question: 'What does a DSPy-style compiler optimize, relative to hand-edited prompts?',
+        options: [
+          'GPU clock rates via CUDA driver hooks',
+          'Instructions and few-shot demonstrations against an explicit metric on a trainset, then freeze the compiled artifact for production',
+          'Only the tokenizer vocabulary size',
+          'DNS TTLs for MCP Streamable HTTP endpoints'
+        ],
+        answerIndex: 1,
+        explanation: 'DSPy treats prompt text as a program to compile. BootstrapFewShot/MIPRO-style optimizers search demos/instructions to raise a metric — then you ship the frozen result.',
+        concept: 'DSPy Compilation'
+      },
+      {
+        id: 'q3_8',
+        question: 'Which SQL should a read-only text-to-SQL firewall reject?',
+        options: [
+          'SELECT SUM(amount) AS total_revenue FROM orders',
+          'WITH recent AS (SELECT * FROM users) SELECT COUNT(*) FROM recent',
+          "SELECT 1; DROP TABLE users",
+          'SELECT u.name, o.amount FROM users u JOIN orders o ON o.user_id = u.id'
+        ],
+        answerIndex: 2,
+        explanation: 'Statement stacking and writes (DROP/DELETE/INSERT/UPDATE) must be rejected. Single SELECT/WITH queries are the allowed class on a read-only replica.',
+        concept: 'SQL Read-Only Firewall'
       }
     ],
     flashcards: [
@@ -882,6 +949,20 @@ if proposal.status.value == "awaiting_approval":
         category: 'Computer-Use',
         definition: 'A structured tree of UI roles, names, and values used as the agent Observation instead of (or before) raw screenshots.',
         keyTakeaway: 'Usually lower token cost and more stable selectors than pixels; still untrusted content for IPI purposes.'
+      },
+      {
+        id: 'fc3_5',
+        term: 'DSPy Compilation',
+        category: 'Prompt Optimization',
+        definition: 'An approach that optimizes LLM program instructions and demonstrations against a metric on a trainset (e.g. BootstrapFewShot), then freezes the compiled prompt for production.',
+        keyTakeaway: 'Replace vibe-based prompt edits with measurable compile → evaluate → ship loops.'
+      },
+      {
+        id: 'fc3_6',
+        term: 'SQLQueryResult (Typed Text-to-SQL)',
+        category: 'Structured Agents',
+        definition: 'A PydanticAI-style output_type schema carrying query_explanation, sql_query, and confidence_score, executed only after a read-only SQL firewall.',
+        keyTakeaway: 'Schema tool → typed draft → guard → RO execute → repair. Matches blueprint bp_sql_agent.'
       }
     ]
   },
