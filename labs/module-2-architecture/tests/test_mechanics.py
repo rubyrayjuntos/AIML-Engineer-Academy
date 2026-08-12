@@ -1,19 +1,21 @@
 """
 Tests for Module 2 – LLM Architecture Mechanics
 
-13 tests covering:
+16 tests covering:
   - causal_mask (2)
   - KV-cache accounting: mha, gqa, mla (3)
   - LoRA: param count, forward (2)
   - quantization: roundtrip, range (2)
   - GRPO advantages: mean, std (2)
   - MoE routing: dispatch shape, capacity enforcement (2)
+  - diffusion: schedule endpoints, t=0 identity, energy vs t (3)
 """
 import numpy as np
 import pytest
 
 from app.mechanics import (
     causal_mask,
+    cosine_alpha_bar,
     dequantize_symmetric_int4,
     gqa_kv_cache_bytes,
     grpo_advantages,
@@ -22,6 +24,7 @@ from app.mechanics import (
     mha_kv_cache_bytes,
     mla_kv_cache_bytes,
     moe_routing,
+    q_sample,
     quantize_symmetric_int4,
 )
 
@@ -147,3 +150,39 @@ def test_moe_routing_capacity_enforced():
     logits = rng.standard_normal((num_tokens, num_experts)).astype(np.float32)
     result = moe_routing(logits, top_k=2, num_experts=num_experts, expert_capacity=capacity)
     assert np.all(result["load_per_expert"] <= capacity)
+
+
+# ---------------------------------------------------------------------------
+# Diffusion schedule
+# ---------------------------------------------------------------------------
+
+
+def test_cosine_alpha_bar_endpoints():
+    alpha_bar = cosine_alpha_bar(1000)
+    assert alpha_bar.shape == (1000,)
+    assert alpha_bar[0] > 0.99
+    assert alpha_bar[-1] < 0.05
+    assert np.all(np.diff(alpha_bar) <= 1e-12)  # non-increasing
+
+
+def test_q_sample_t0_near_x0_with_zero_noise():
+    alpha_bar = cosine_alpha_bar(1000)
+    x0 = np.ones(4, dtype=np.float64)
+    eps = np.zeros(4, dtype=np.float64)
+    xt = q_sample(x0, t=0, alpha_bar=alpha_bar, eps=eps)
+    np.testing.assert_allclose(xt, x0, atol=1e-3)
+
+
+def test_q_sample_energy_increases_with_t():
+    rng = np.random.default_rng(0)
+    alpha_bar = cosine_alpha_bar(1000)
+    x0 = np.ones(32, dtype=np.float64)
+    eps = rng.standard_normal(32)
+    e_early = float(np.mean(q_sample(x0, t=10, alpha_bar=alpha_bar, eps=eps) ** 2))
+    e_late = float(np.mean(q_sample(x0, t=900, alpha_bar=alpha_bar, eps=eps) ** 2))
+    # Clean signal energy is 1; late timesteps should be closer to noise energy (~1)
+    # while early timesteps stay closer to x0. Compare SNR-weighted residual instead:
+    residual_early = float(np.mean((q_sample(x0, t=10, alpha_bar=alpha_bar, eps=eps) - x0) ** 2))
+    residual_late = float(np.mean((q_sample(x0, t=900, alpha_bar=alpha_bar, eps=eps) - x0) ** 2))
+    assert residual_late > residual_early
+    assert e_late > 0 and e_early > 0

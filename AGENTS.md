@@ -16,6 +16,7 @@ Interactive AI/ML engineering training platform. Two parts live in this repo:
 - `XAI_API_KEY` is required for live AI Mentor replies (see `.env.example`). Without it, `/api/ai/chat` returns high-quality canned "curriculum engine" fallback answers, so the UI still works end-to-end. Optional `XAI_MODEL` overrides the default `grok-4.6`. Check `curl -s localhost:3000/api/health` for `hasXaiKey` and `model`.
 - `/api/ai/chat` is rate-limited (default 20 req/min/IP) and truncates oversized prompts/history. Upstream xAI error bodies are logged server-side only — clients get a generic fallback message.
 - Theory/mentor content uses Markdown + KaTeX (`MarkdownContent`). Lab "Preview Expected Logs" is canned simulation; certificate unlock requires confirmed lab evidence + passing quizzes.
+- Simulators Hub includes a teaching-only **Diffusion Forward Process** viz (not a real image generator). Module 2 lab pytest expects **16 passed** after the diffusion schedule helpers landed in `labs/module-2-architecture`.
 
 ### Python labs
 - Each lab is isolated in its own virtualenv at `labs/module-*/.venv` because their dependencies conflict across labs (e.g. `mcp` in module-3 needs a newer `starlette` than `fastapi` in module-4). Do NOT install all lab requirements into one shared environment.
