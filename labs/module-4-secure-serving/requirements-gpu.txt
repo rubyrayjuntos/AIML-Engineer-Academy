@@ -1,0 +1,10 @@
+# Optional GPU extras for Module 4 vLLM track.
+# Prefer installing vLLM in a dedicated environment (see upstream docs).
+# Core CI uses requirements.txt only.
+#
+#   pip install -r requirements-gpu.txt
+#   export ACADEMY_GPU=1
+#   ./scripts/start_vllm_optional.sh
+#
+vllm>=0.5.0
+httpx>=0.28.0

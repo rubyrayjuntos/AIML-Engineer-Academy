@@ -41,3 +41,22 @@ Ten equally weighted competencies are recorded in the evidence artifact: authent
 ## Speculative decoding teaching helpers
 
 Pure-Python estimates live in `app/speculation.py` (`expected_accepted_length`, `speculative_speedup`). They are **not** GPU/vLLM measurements — see tests in `tests/test_speculation.py`.
+
+## Optional GPU track (vLLM)
+
+Default CI path uses `DeterministicEngine` only. To attach a real OpenAI-compatible vLLM server on a CUDA host:
+
+```bash
+pip install -r requirements-gpu.txt   # dedicated env recommended
+export ACADEMY_GPU=1
+./scripts/start_vllm_optional.sh      # serves on :8001 by default
+export ACADEMY_ENGINE=vllm ACADEMY_VLLM_URL=http://127.0.0.1:8001
+uvicorn app.serve_optional:app --host 127.0.0.1 --port 8000
+```
+
+- Protocol: `app.engine.InferenceEngine`
+- Adapter: `app.vllm_adapter.OpenAICompatEngine` (HTTP — does not `import vllm` in the FastAPI process)
+- Factory refuses `ACADEMY_ENGINE=vllm` unless `ACADEMY_GPU=1` (prevents silent mislabeling)
+- Evidence `claims.vllm_measured` / `gpu_used` stay false unless you intentionally record a live GPU run
+
+Pytest: default suite is CPU-green; `@pytest.mark.gpu` live checks are skipped offline.

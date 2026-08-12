@@ -14,8 +14,9 @@ of modern LLM architectures:
 | GRPO group-advantage normalisation | `app/mechanics.py` |
 | Top-k MoE routing with capacity & imbalance | `app/mechanics.py` |
 | Cosine diffusion schedule + `q_sample` | `app/mechanics.py` |
+| Optional QLoRA GPU track (plan / dry-run) | `app/qlora_optional.py` |
 
-## Quick Start
+## Quick Start (required CPU path)
 
 ```bash
 cd labs/module-2-architecture
@@ -24,20 +25,28 @@ source .venv/bin/activate
 pip install -r requirements.txt
 pytest -q
 python -m app.evidence --output artifacts/evidence.json
+python -m app.qlora_optional --output artifacts/qlora_plan.json
 ```
 
-Expected test result: **16 passed**
+Expected test result: **19 passed**
+
+Evidence `claims.gpu_used` / `qlora_executed` stay **false** on this path.
+
+## Optional GPU track (QLoRA)
+
+Only on a CUDA host you control — **not** Cloud Agent / CI:
+
+```bash
+pip install -r requirements-gpu.txt
+export ACADEMY_GPU=1
+python -m app.qlora_optional --output artifacts/qlora_plan.json
+# Real train (operator-owned weights; never set in CI):
+# export ACADEMY_QLORA_EXECUTE=1 ACADEMY_QLORA_MODEL=<hf-or-local-id>
+```
+
+Pytest marker `gpu` is reserved for CUDA-only cases; default `pytest -q` stays green offline.
 
 ## Assessment Rubric (100 points)
 
-1. Causal attention mask (9)
-2. MHA KV-cache accounting (9)
-3. GQA KV-cache accounting (9)
-4. MLA KV-cache accounting (9)
-5. LoRA parameter counting (9)
-6. LoRA forward pass (9)
-7. Symmetric 4-bit quantization (9)
-8. GRPO advantage normalisation (9)
-9. MoE top-k routing (9)
-10. Diffusion schedule numerics (10)
-11. Deterministic evidence artifact (9)
+NumPy mechanics + diffusion + optional QLoRA plan honesty + evidence artifact
+(see `app/evidence.py` for point breakdown).

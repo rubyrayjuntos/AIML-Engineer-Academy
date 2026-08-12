@@ -31,6 +31,7 @@ from app.mechanics import (
     q_sample,
     quantize_symmetric_int4,
 )
+from app.qlora_optional import build_qlora_plan, maybe_run_gpu_dry_run
 
 _LAB_ROOT = pathlib.Path(__file__).resolve().parent.parent
 
@@ -45,6 +46,12 @@ def generate_evidence() -> dict:
         "module": "module-2-architecture",
         "generated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "competencies": {},
+        "claims": {
+            "gpu_used": False,
+            "qlora_executed": False,
+            "cuda_available": False,
+            "numpy_mechanics_measured": True,
+        },
     }
 
     # 1. Causal mask
@@ -130,18 +137,34 @@ def generate_evidence() -> dict:
         "non_increasing": bool(np.all(np.diff(alpha_bar) <= 1e-12)),
     }
 
+    # 8. Optional QLoRA track plan (CPU-safe; never claims GPU by default)
+    qlora_plan = maybe_run_gpu_dry_run(build_qlora_plan())
+    evidence["optional_gpu_track"] = {
+        "qlora_plan_claims": qlora_plan["claims"],
+        "lora_rank": qlora_plan["lora"]["r"],
+        "note": "Required path is NumPy mechanics; GPU QLoRA is opt-in via ACADEMY_GPU=1",
+    }
+    evidence["claims"].update(
+        {
+            "gpu_used": bool(qlora_plan["claims"]["gpu_used"]),
+            "qlora_executed": bool(qlora_plan["claims"]["qlora_executed"]),
+            "cuda_available": bool(qlora_plan["claims"]["cuda_available"]),
+        }
+    )
+
     # Assessment rubric (100 points)
     evidence["assessment_rubric"] = [
-        {"competency": "Causal attention mask", "points": 9},
-        {"competency": "MHA KV-cache accounting", "points": 9},
-        {"competency": "GQA KV-cache accounting", "points": 9},
-        {"competency": "MLA KV-cache accounting", "points": 9},
-        {"competency": "LoRA parameter counting", "points": 9},
-        {"competency": "LoRA forward pass", "points": 9},
-        {"competency": "Symmetric 4-bit quantization", "points": 9},
-        {"competency": "GRPO advantage normalisation", "points": 9},
-        {"competency": "MoE top-k routing", "points": 9},
-        {"competency": "Diffusion schedule numerics", "points": 10},
+        {"competency": "Causal attention mask", "points": 8},
+        {"competency": "MHA KV-cache accounting", "points": 8},
+        {"competency": "GQA KV-cache accounting", "points": 8},
+        {"competency": "MLA KV-cache accounting", "points": 8},
+        {"competency": "LoRA parameter counting", "points": 8},
+        {"competency": "LoRA forward pass", "points": 8},
+        {"competency": "Symmetric 4-bit quantization", "points": 8},
+        {"competency": "GRPO advantage normalisation", "points": 8},
+        {"competency": "MoE top-k routing", "points": 8},
+        {"competency": "Diffusion schedule numerics", "points": 9},
+        {"competency": "Optional QLoRA plan + honest GPU claims", "points": 10},
         {"competency": "Deterministic evidence artifact", "points": 9},
     ]
     evidence["total_points"] = 100
