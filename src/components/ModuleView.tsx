@@ -210,7 +210,7 @@ export const ModuleView: React.FC<ModuleViewProps> = ({
               <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-700 font-mono">
                 Environment: {module.lab.environment}
               </span>
-              <h2 className="text-2xl font-extrabold text-slate-900 mt-2">🧪 {module.lab.title}</h2>
+              <h2 className="text-2xl font-extrabold text-slate-900 mt-2">{module.lab.title}</h2>
             </div>
 
             <div className="flex flex-wrap gap-2 self-start">
@@ -324,13 +324,16 @@ export const ModuleView: React.FC<ModuleViewProps> = ({
                       return (
                         <button
                           key={optIdx}
+                          type="button"
+                          aria-pressed={isSelected}
                           onClick={() => handleSelectQuizOption(q.id, optIdx)}
                           className={`w-full text-left p-3 rounded-xl text-xs font-medium transition-all border ${
                             isSelected
-                              ? 'bg-indigo-600 text-white border-indigo-600 font-bold'
+                              ? 'bg-indigo-600 text-white border-indigo-600 font-bold ring-2 ring-indigo-300'
                               : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
                           }`}
                         >
+                          <span className="font-mono font-bold mr-2 opacity-70">{String.fromCharCode(65 + optIdx)}.</span>
                           {opt}
                         </button>
                       );
