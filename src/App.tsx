@@ -10,6 +10,7 @@ import { ReactAgentSimulator } from './components/Simulators/ReactAgentSimulator
 import { McpSandbox } from './components/Simulators/McpSandbox';
 import { RagVsFtEngine } from './components/Simulators/RagVsFtEngine';
 import { PromptInjectionSandbox } from './components/Simulators/PromptInjectionSandbox';
+import { DiffusionSimulator } from './components/Simulators/DiffusionSimulator';
 import { SystemDesignCanvas } from './components/SystemDesignCanvas';
 import { FlashcardsView } from './components/FlashcardsView';
 import { QuizView } from './components/QuizView';
@@ -192,11 +193,12 @@ export default function App() {
                   Systems & Architecture Simulators
                 </h1>
                 <p className="text-sm text-slate-500 mt-1">
-                  Test vLLM PagedAttention, ReAct cognitive loops, Model Context Protocol (MCP), RAG vs Fine-tuning matrix, and Indirect Prompt Injection firewalls.
+                  Test vLLM PagedAttention, diffusion forward noising, ReAct cognitive loops, Model Context Protocol (MCP), RAG vs Fine-tuning matrix, and Indirect Prompt Injection firewalls.
                 </p>
               </div>
 
               <VllmSimulator />
+              <DiffusionSimulator />
               <ReactAgentSimulator />
               <McpSandbox />
               <RagVsFtEngine />

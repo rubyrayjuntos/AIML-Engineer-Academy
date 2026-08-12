@@ -11,6 +11,7 @@ Pure-NumPy implementations of the core numerical mechanics tested in this lab:
   - Symmetric 4-bit quantization / dequantization
   - GRPO group-advantage normalisation
   - Top-k mixture-of-experts (MoE) routing with capacity and balance metrics
+  - Cosine diffusion noise schedule and closed-form forward q_sample
 
 All functions are deterministic and stateless; they accept plain Python scalars
 or NumPy arrays and return plain Python scalars or NumPy arrays.
@@ -244,3 +245,39 @@ def moe_routing(
         "dropped_tokens": dropped_tokens,
         "imbalance_ratio": imbalance_ratio,
     }
+
+
+# ---------------------------------------------------------------------------
+# 7. Diffusion schedule (DDPM / Nichol & Dhariwal cosine)
+# ---------------------------------------------------------------------------
+
+
+def cosine_alpha_bar(timesteps: int, s: float = 0.008) -> np.ndarray:
+    """Return cumulative product \\bar{alpha}_t for a cosine schedule.
+
+    Implements the Nichol & Dhariwal cosine schedule used by many DDPM-style
+    trainers. Index ``t`` corresponds to timestep ``t`` in
+    ``q_sample(..., t, alpha_bar, ...)`` with ``0 <= t < timesteps``.
+    """
+    if timesteps < 1:
+        raise ValueError("timesteps must be >= 1")
+    steps = np.arange(timesteps + 1, dtype=np.float64)
+    f = np.cos(((steps / timesteps) + s) / (1 + s) * (math.pi / 2)) ** 2
+    alpha_bar = f / f[0]
+    return alpha_bar[1:]
+
+
+def q_sample(
+    x0: np.ndarray,
+    t: int,
+    alpha_bar: np.ndarray,
+    eps: np.ndarray,
+) -> np.ndarray:
+    """Closed-form forward diffusion step.
+
+    x_t = sqrt(\\bar{alpha}_t) * x0 + sqrt(1 - \\bar{alpha}_t) * eps
+    """
+    x0 = np.asarray(x0, dtype=np.float64)
+    eps = np.asarray(eps, dtype=np.float64)
+    a = float(alpha_bar[t])
+    return np.sqrt(a) * x0 + np.sqrt(1.0 - a) * eps

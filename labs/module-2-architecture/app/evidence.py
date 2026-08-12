@@ -19,6 +19,7 @@ import numpy as np
 
 from app.mechanics import (
     causal_mask,
+    cosine_alpha_bar,
     dequantize_symmetric_int4,
     gqa_kv_cache_bytes,
     grpo_advantages,
@@ -27,6 +28,7 @@ from app.mechanics import (
     mha_kv_cache_bytes,
     mla_kv_cache_bytes,
     moe_routing,
+    q_sample,
     quantize_symmetric_int4,
 )
 
@@ -115,18 +117,32 @@ def generate_evidence() -> dict:
         "imbalance_ratio": round(result["imbalance_ratio"], 4),
     }
 
+    # 7. Diffusion schedule
+    alpha_bar = cosine_alpha_bar(1000)
+    x0 = np.ones(8, dtype=np.float64)
+    eps = rng.standard_normal(8)
+    x_mid = q_sample(x0, t=500, alpha_bar=alpha_bar, eps=eps)
+    evidence["competencies"]["diffusion_schedule"] = {
+        "timesteps": 1000,
+        "alpha_bar_first": round(float(alpha_bar[0]), 6),
+        "alpha_bar_last": round(float(alpha_bar[-1]), 6),
+        "mid_mean_square": round(float(np.mean(x_mid**2)), 6),
+        "non_increasing": bool(np.all(np.diff(alpha_bar) <= 1e-12)),
+    }
+
     # Assessment rubric (100 points)
     evidence["assessment_rubric"] = [
-        {"competency": "Causal attention mask", "points": 10},
-        {"competency": "MHA KV-cache accounting", "points": 10},
-        {"competency": "GQA KV-cache accounting", "points": 10},
-        {"competency": "MLA KV-cache accounting", "points": 10},
-        {"competency": "LoRA parameter counting", "points": 10},
-        {"competency": "LoRA forward pass", "points": 10},
-        {"competency": "Symmetric 4-bit quantization", "points": 10},
-        {"competency": "GRPO advantage normalisation", "points": 10},
-        {"competency": "MoE top-k routing", "points": 10},
-        {"competency": "Deterministic evidence artifact", "points": 10},
+        {"competency": "Causal attention mask", "points": 9},
+        {"competency": "MHA KV-cache accounting", "points": 9},
+        {"competency": "GQA KV-cache accounting", "points": 9},
+        {"competency": "MLA KV-cache accounting", "points": 9},
+        {"competency": "LoRA parameter counting", "points": 9},
+        {"competency": "LoRA forward pass", "points": 9},
+        {"competency": "Symmetric 4-bit quantization", "points": 9},
+        {"competency": "GRPO advantage normalisation", "points": 9},
+        {"competency": "MoE top-k routing", "points": 9},
+        {"competency": "Diffusion schedule numerics", "points": 10},
+        {"competency": "Deterministic evidence artifact", "points": 9},
     ]
     evidence["total_points"] = 100
 

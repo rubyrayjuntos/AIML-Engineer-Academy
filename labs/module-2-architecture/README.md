@@ -13,6 +13,7 @@ of modern LLM architectures:
 | Symmetric 4-bit quantization / dequantization | `app/mechanics.py` |
 | GRPO group-advantage normalisation | `app/mechanics.py` |
 | Top-k MoE routing with capacity & imbalance | `app/mechanics.py` |
+| Cosine diffusion schedule + `q_sample` | `app/mechanics.py` |
 
 ## Quick Start
 
@@ -25,19 +26,18 @@ pytest -q
 python -m app.evidence --output artifacts/evidence.json
 ```
 
-Expected test result: **13 passed**
+Expected test result: **16 passed**
 
 ## Assessment Rubric (100 points)
 
-Each of the ten competency areas is worth 10 points:
-
-1. Causal attention mask
-2. MHA KV-cache accounting
-3. GQA KV-cache accounting
-4. MLA KV-cache accounting
-5. LoRA parameter counting
-6. LoRA forward pass
-7. Symmetric 4-bit quantization
-8. GRPO advantage normalisation
-9. MoE top-k routing
-10. Deterministic evidence artifact
+1. Causal attention mask (9)
+2. MHA KV-cache accounting (9)
+3. GQA KV-cache accounting (9)
+4. MLA KV-cache accounting (9)
+5. LoRA parameter counting (9)
+6. LoRA forward pass (9)
+7. Symmetric 4-bit quantization (9)
+8. GRPO advantage normalisation (9)
+9. MoE top-k routing (9)
+10. Diffusion schedule numerics (10)
+11. Deterministic evidence artifact (9)

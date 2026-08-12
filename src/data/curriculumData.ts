@@ -232,20 +232,21 @@ async def stream_generate(req: PromptRequest):
     slug: 'advanced-llm-architectures',
     tag: 'MODULE 02',
     title: 'Advanced Large Language Model Architectures',
-    subtitle: 'FlashAttention-3, MLA, Alignment (DPO/GRPO), MoE & Quantization',
-    description: 'Deep dive into Transformer optimizations, DeepSeek Multi-Head Latent Attention (MLA), GRPO reasoning training, DeepSeek-V3 load-balancing & DualPipe, QLoRA, and AWQ/GGUF quantization.',
-    estimatedHours: 20,
+    subtitle: 'FlashAttention-3, MLA, Alignment, MoE, Quantization & Diffusion',
+    description: 'Deep dive into Transformer optimizations, DeepSeek Multi-Head Latent Attention (MLA), GRPO reasoning training, DeepSeek-V3 load-balancing & DualPipe, QLoRA/AWQ/GGUF quantization, and diffusion models for multimodal generation.',
+    estimatedHours: 22,
     prerequisites: ['Transformer Attention Mechanism $O(N^2)$', 'Matrix Multiplication', 'PyTorch Basics'],
     competencyContract: {
-      explain: ['Transformer attention, KV-cache behavior, and FlashAttention/MLA tradeoffs', 'SFT versus DPO versus GRPO and MoE routing', 'LoRA/QLoRA, quantization, and diffusion fundamentals'],
-      buildAndDebug: ['Compute attention / KV-cache / LoRA / quantization / GRPO / MoE numerics in NumPy', 'Validate formulas against the module pytest suite', 'Generate a machine-readable evidence artifact from the lab'],
-      evidenceRequired: ['Passing pytest results for architecture mechanics', 'Evidence JSON with checksum', 'Notes comparing lab numerics to production QLoRA/vLLM claims']
+      explain: ['Transformer attention, KV-cache behavior, and FlashAttention/MLA tradeoffs', 'SFT versus DPO versus GRPO and MoE routing', 'LoRA/QLoRA, quantization, and diffusion forward/reverse processes'],
+      buildAndDebug: ['Compute attention / KV-cache / LoRA / quantization / GRPO / MoE / diffusion schedule numerics in NumPy', 'Validate formulas against the module pytest suite', 'Generate a machine-readable evidence artifact from the lab'],
+      evidenceRequired: ['Passing pytest results for architecture mechanics (including diffusion schedules)', 'Evidence JSON with checksum', 'Notes comparing lab numerics to production QLoRA/vLLM/diffusion claims']
     },
     objectives: [
       'Deconstruct FlashAttention-3 GPU memory tiling and Hopper Tensor Memory Accelerator (TMA) pipelining',
       'Analyze DeepSeek Multi-Head Latent Attention (MLA) low-rank KV cache compression mechanics',
       'Master Group Relative Policy Optimization (GRPO) without Critic models for reasoning LLMs',
-      'Implement QLoRA fine-tuning and export quantized GGUF/AWQ model weights for edge deployment'
+      'Implement QLoRA fine-tuning and export quantized GGUF/AWQ model weights for edge deployment',
+      'Explain diffusion forward/reverse processes, latent diffusion, and text-conditioning for multimodal agents'
     ],
     sections: [
       {
@@ -285,6 +286,23 @@ async def stream_generate(req: PromptRequest):
 - **Auxiliary-Loss-Free Load Balancing:** Traditional MoE uses auxiliary loss functions that degrade main model performance. DeepSeek-V3 applies dynamic *Expert Bias* terms that automatically adjust expert routing thresholds based on load.
 - **DualPipe Parallelism:** Overlaps forward/backward micro-batch computation with All-to-All communication to reduce exposed communication latency; effectiveness depends on topology, workload, and implementation.
 - **Multi-Token Prediction (MTP):** Predicts $D$ future tokens simultaneously during training, enriching representation learning and accelerating speculative decoding.`
+      },
+      {
+        title: '2.5 Diffusion Models for Multimodal Generation',
+        content: `While autoregressive LLMs dominate text agents, **diffusion models** power most modern image, video, and audio generators that multimodal agents must call as tools.
+
+**Core Process:**
+- **Forward (noising):** Gradually add Gaussian noise to a clean sample $x_0$ over $T$ timesteps until the distribution approaches isotropic noise $x_T \\sim \\mathcal{N}(0, I)$.
+- **Reverse (denoising):** A neural network (classically a UNet with cross-attention) learns to predict noise or a clean estimate so the sampler can iterate from $x_T$ back to $x_0$.
+
+**Latent Diffusion:**
+Running the process in a compressed **latent space** (VAE encoder/decoder) instead of raw pixels cuts compute while preserving quality. Text prompts condition the denoiser via cross-attention to embeddings from encoders such as **CLIP** or T5.
+
+**Engineering Takeaways for Agents:**
+- Treat image/video models as **external tools** with latency, cost, and safety boundaries (prompt filters, NSFW gates, rate limits).
+- Prefer **latent** pipelines for interactive agents; reserve pixel-space diffusion for research or specialized fidelity needs.
+- Sampler choice (DDIM, DPM-Solver, etc.) trades step count against quality — measure end-to-end tool latency, not just FLOPs.`,
+        keyFormula: 'x_t = \\sqrt{\\bar{\\alpha}_t}\\, x_0 + \\sqrt{1-\\bar{\\alpha}_t}\\, \\epsilon,\\quad \\epsilon \\sim \\mathcal{N}(0,I)'
       }
     ],
     codeExamples: [
@@ -357,6 +375,35 @@ print("GRPO Advantages:", adv)
 # Output: tensor([[ 1.0000, -1.0000, -1.0000,  1.0000]])
 `,
         explanation: 'GRPO normalizes rewards strictly within a generated output group per prompt, eliminating the Critic model requirement.'
+      },
+      {
+        id: 'c2_diffusion',
+        title: 'DDPM Cosine Noise Schedule (NumPy)',
+        language: 'python',
+        filename: 'diffusion_schedule.py',
+        code: `import numpy as np
+
+def cosine_alpha_bar(timesteps: int, s: float = 0.008) -> np.ndarray:
+    """Cumulative product \\bar{alpha}_t for a cosine schedule (Nichol & Dhariwal)."""
+    steps = np.arange(timesteps + 1, dtype=np.float64)
+    f = np.cos(((steps / timesteps) + s) / (1 + s) * np.pi / 2) ** 2
+    alpha_bar = f / f[0]
+    return alpha_bar[1:]
+
+def q_sample(x0: np.ndarray, t: int, alpha_bar: np.ndarray, eps: np.ndarray) -> np.ndarray:
+    """Forward diffusion: x_t = sqrt(abar_t) * x0 + sqrt(1 - abar_t) * eps."""
+    a = alpha_bar[t]
+    return np.sqrt(a) * x0 + np.sqrt(1.0 - a) * eps
+
+T = 1000
+alpha_bar = cosine_alpha_bar(T)
+x0 = np.ones(8)  # toy clean signal
+eps = np.random.default_rng(0).standard_normal(8)
+x_mid = q_sample(x0, t=T // 2, alpha_bar=alpha_bar, eps=eps)
+print("alpha_bar[0]=", round(float(alpha_bar[0]), 4), "alpha_bar[-1]=", round(float(alpha_bar[-1]), 4))
+print("mid SNR-ish energy:", round(float(np.mean(x_mid**2)), 4))
+`,
+        explanation: 'Builds a cosine cumulative noise schedule and applies the closed-form forward diffusion step used by DDPM-style trainers.'
       }
     ],
     lab: {
@@ -371,26 +418,23 @@ print("GRPO Advantages:", adv)
         'pytest -q',
         'python -m app.evidence --output artifacts/evidence.json'
       ],
-      expectedOutput: '13 passed',
+      expectedOutput: '16 passed',
       starterCode: {
         id: 'lab2_starter',
-        title: 'Quantization Calculator',
+        title: 'Diffusion Schedule Smoke Check',
         language: 'python',
-        filename: 'quant_calc.py',
-        code: `def calculate_vram(params_billions, precision_bits, kv_cache_gb=2.0):
-    weights_gb = (params_billions * 10**9 * (precision_bits / 8)) / (1024**3)
-    total_gb = weights_gb + kv_cache_gb
-    return weights_gb, total_gb
+        filename: 'labs/module-2-architecture/app/mechanics.py',
+        code: `from app.mechanics import cosine_alpha_bar, q_sample
+import numpy as np
 
-params = 8.0  # 8 Billion parameters
-fp16_w, fp16_tot = calculate_vram(params, 16)
-q4_w, q4_tot = calculate_vram(params, 4)
-
-print(f"FP16 Base VRAM: {fp16_tot:.2f} GB (Weights: {fp16_w:.2f} GB)")
-print(f"4-Bit NF4 VRAM: {q4_tot:.2f} GB (Weights: {q4_w:.2f} GB)")
-print(f"VRAM Reduction: {((fp16_tot - q4_tot)/fp16_tot)*100:.1f}%")
+alpha_bar = cosine_alpha_bar(1000)
+x0 = np.ones(4)
+eps = np.zeros(4)
+xt = q_sample(x0, t=0, alpha_bar=alpha_bar, eps=eps)
+assert abs(float(xt.mean()) - 1.0) < 1e-3
+print("diffusion schedule ok", round(float(alpha_bar[-1]), 6))
 `,
-        explanation: 'Demonstrates memory reduction across FP16, INT8, and INT4 precision levels.'
+        explanation: 'Smoke-checks the Module 2 diffusion helpers that now ship beside attention/LoRA/MoE numerics.'
       }
     },
     quizzes: [
@@ -445,6 +489,32 @@ print(f"VRAM Reduction: {((fp16_tot - q4_tot)/fp16_tot)*100:.1f}%")
         answerIndex: 1,
         explanation: 'QLoRA keeps a 4-bit base model frozen (or nearly frozen) and trains LoRA adapters, cutting trainable parameter count and VRAM versus full fine-tuning.',
         concept: 'QLoRA'
+      },
+      {
+        id: 'q2_5',
+        question: 'In a DDPM-style diffusion process, what does the forward process do?',
+        options: [
+          'Autoregressively predicts the next discrete token with a causal mask',
+          'Gradually adds Gaussian noise to a clean sample across timesteps until it approaches pure noise',
+          'Compresses KV caches into low-rank latents for faster decode',
+          'Routes each token to a sparse subset of MoE experts'
+        ],
+        answerIndex: 1,
+        explanation: 'The forward process is a fixed noising Markov chain. Learning happens in the reverse denoising network that inverts this corruption.',
+        concept: 'Diffusion Forward Process'
+      },
+      {
+        id: 'q2_6',
+        question: 'Why do Latent Diffusion Models run denoising in a VAE latent space?',
+        options: [
+          'Because Softmax cannot operate on continuous pixel values',
+          'To reduce compute/memory versus pixel-space diffusion while preserving quality via a learned compressed representation',
+          'To eliminate the need for text encoders such as CLIP',
+          'To replace UNets with pure bag-of-words classifiers'
+        ],
+        answerIndex: 1,
+        explanation: 'Latent diffusion denoises in a lower-dimensional latent grid, which is far cheaper than iterating a UNet over full-resolution pixels.',
+        concept: 'Latent Diffusion'
       }
     ],
     flashcards: [
@@ -461,6 +531,20 @@ print(f"VRAM Reduction: {((fp16_tot - q4_tot)/fp16_tot)*100:.1f}%")
         category: 'GPU Kernel Optimization',
         definition: 'An optimized self-attention algorithm for NVIDIA Hopper GPUs that uses asynchronous TMA data loads into SRAM and FP8 block quantization.',
         keyTakeaway: 'Targets HBM bandwidth bottlenecks via on-chip tiling; reported peak FLOP/s figures are hardware- and kernel-specific.'
+      },
+      {
+        id: 'fc2_3',
+        term: 'Latent Diffusion',
+        category: 'Generative Models',
+        definition: 'A diffusion approach that performs the forward/reverse noising process in a compressed VAE latent space rather than directly in pixel (or waveform) space.',
+        keyTakeaway: 'Makes high-resolution multimodal generation practical for interactive agent tool calls.'
+      },
+      {
+        id: 'fc2_4',
+        term: 'Diffusion Forward Process',
+        category: 'Generative Models',
+        definition: 'A fixed Markov chain that incrementally adds Gaussian noise to a clean sample $x_0$ until timestep $T$ approximates isotropic noise.',
+        keyTakeaway: 'Training learns to reverse this corruption; inference starts from noise and denoises conditioned on text or other controls.'
       }
     ]
   },
