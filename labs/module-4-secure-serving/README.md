@@ -37,3 +37,7 @@ Do not compare benchmark runs unless engine, hardware, Python/runtime versions, 
 ## Assessment rubric (100 points)
 
 Ten equally weighted competencies are recorded in the evidence artifact: authentication, validation, rate limiting, concurrency, timeouts, correlation, load generation, percentile latency, throughput/regression gates, and reproducible evidence/threat modeling.
+
+## Speculative decoding teaching helpers
+
+Pure-Python estimates live in `app/speculation.py` (`expected_accepted_length`, `speculative_speedup`). They are **not** GPU/vLLM measurements — see tests in `tests/test_speculation.py`.
