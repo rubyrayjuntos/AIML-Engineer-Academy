@@ -10,12 +10,50 @@ const __dirname = path.dirname(__filename);
 
 const XAI_API_URL = 'https://api.x.ai/v1/chat/completions';
 const XAI_MODEL = process.env.XAI_MODEL || 'grok-4.6';
+const CHAT_RATE_LIMIT_WINDOW_MS = 60_000;
+const CHAT_RATE_LIMIT_MAX = Number(process.env.CHAT_RATE_LIMIT_MAX || 20);
+const MAX_PROMPT_CHARS = 8_000;
+const MAX_HISTORY_MESSAGES = 8;
+const MAX_HISTORY_CHARS = 2_000;
+
+type RateBucket = { count: number; resetAt: number };
+const chatRateBuckets = new Map<string, RateBucket>();
+
+function clientIp(req: express.Request): string {
+  const forwarded = req.headers['x-forwarded-for'];
+  if (typeof forwarded === 'string' && forwarded.length > 0) {
+    return forwarded.split(',')[0].trim();
+  }
+  return req.socket.remoteAddress || 'unknown';
+}
+
+function consumeChatRateLimit(ip: string): { allowed: boolean; retryAfterSec: number } {
+  const now = Date.now();
+  const existing = chatRateBuckets.get(ip);
+  if (!existing || existing.resetAt <= now) {
+    chatRateBuckets.set(ip, { count: 1, resetAt: now + CHAT_RATE_LIMIT_WINDOW_MS });
+    return { allowed: true, retryAfterSec: 0 };
+  }
+  if (existing.count >= CHAT_RATE_LIMIT_MAX) {
+    return {
+      allowed: false,
+      retryAfterSec: Math.max(1, Math.ceil((existing.resetAt - now) / 1000))
+    };
+  }
+  existing.count += 1;
+  return { allowed: true, retryAfterSec: 0 };
+}
+
+function truncateText(value: unknown, maxChars: number): string {
+  const text = String(value ?? '');
+  return text.length > maxChars ? text.slice(0, maxChars) : text;
+}
 
 async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  app.use(express.json({ limit: '10mb' }));
+  app.use(express.json({ limit: '256kb' }));
 
   // API Routes
   app.get('/api/health', (req, res) => {
@@ -30,17 +68,28 @@ async function startServer() {
   // xAI Grok AI Tutor Endpoint
   app.post('/api/ai/chat', async (req, res) => {
     try {
+      const rate = consumeChatRateLimit(clientIp(req));
+      if (!rate.allowed) {
+        res.setHeader('Retry-After', String(rate.retryAfterSec));
+        return res.status(429).json({
+          error: 'Too many AI Mentor requests. Please wait and try again.',
+          retryAfterSec: rate.retryAfterSec
+        });
+      }
+
       const { prompt, context, conversationHistory } = req.body;
 
-      if (!prompt) {
+      if (!prompt || typeof prompt !== 'string') {
         return res.status(400).json({ error: 'Prompt is required' });
       }
 
+      const safePrompt = truncateText(prompt, MAX_PROMPT_CHARS);
+      const safeContext = truncateText(context || 'General AI Engineering', 200);
       const apiKey = process.env.XAI_API_KEY;
 
       if (!apiKey) {
         // High quality fallback responses for learning concepts when key is absent
-        const fallbackText = generateFallbackAiResponse(prompt, context);
+        const fallbackText = generateFallbackAiResponse(safePrompt, safeContext);
         return res.json({
           reply: fallbackText,
           source: 'simulated_mentor'
@@ -60,20 +109,24 @@ You specialize in:
 8. Evaluation & CI/CD (EDD, DeepEval, Ragas, Promptfoo, OpenTelemetry)
 
 Keep answers structured with Markdown headings, code blocks (Python/TypeScript/Bash), clear tradeoffs, and bullet points.
-Context module: ${context || 'General AI Engineering'}`;
+Context module: ${safeContext}`;
 
       const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
         { role: 'system', content: systemInstruction }
       ];
 
-      for (const msg of conversationHistory || []) {
-        const role = msg.role === 'assistant' ? 'assistant' : 'user';
-        if (msg.content) {
-          messages.push({ role, content: String(msg.content) });
+      const history = Array.isArray(conversationHistory)
+        ? conversationHistory.slice(-MAX_HISTORY_MESSAGES)
+        : [];
+
+      for (const msg of history) {
+        const role = msg?.role === 'assistant' ? 'assistant' : 'user';
+        if (msg?.content) {
+          messages.push({ role, content: truncateText(msg.content, MAX_HISTORY_CHARS) });
         }
       }
 
-      messages.push({ role: 'user', content: prompt });
+      messages.push({ role: 'user', content: safePrompt });
 
       const xaiResponse = await fetch(XAI_API_URL, {
         method: 'POST',
@@ -90,7 +143,8 @@ Context module: ${context || 'General AI Engineering'}`;
 
       if (!xaiResponse.ok) {
         const errorBody = await xaiResponse.text();
-        throw new Error(`xAI API ${xaiResponse.status}: ${errorBody.slice(0, 300)}`);
+        console.error('xAI API error', xaiResponse.status, errorBody.slice(0, 300));
+        throw new Error('upstream_unavailable');
       }
 
       const data = (await xaiResponse.json()) as {
@@ -103,11 +157,11 @@ Context module: ${context || 'General AI Engineering'}`;
         source: XAI_MODEL
       });
     } catch (err: any) {
-      console.error('xAI Grok API Error:', err);
-      // Fallback response on error so user experience remains flawless
-      const fallbackText = generateFallbackAiResponse(req.body.prompt, req.body.context);
+      console.error('xAI Grok API Error:', err?.message || err);
+      // Fallback response on error so user experience remains usable — do not leak upstream payloads
+      const fallbackText = generateFallbackAiResponse(req.body?.prompt, req.body?.context);
       return res.json({
-        reply: `${fallbackText}\n\n*(Note: Powered by Curriculum Knowledge Engine; xAI Grok API encountered an issue: ${err.message || 'Service temporarily unreachable'})*`,
+        reply: `${fallbackText}\n\n*(Note: Powered by Curriculum Knowledge Engine; live Grok mentor is temporarily unavailable.)*`,
         source: 'curriculum_engine'
       });
     }
@@ -222,9 +276,10 @@ out = flash_attn_func(q, k, v, dropout_p=0.0, softmax_scale=1.0 / (head_dim**0.5
 
 The **Model Context Protocol (MCP)** by Anthropic is an open JSON-RPC 2.0 protocol standardizing how LLM agents interact with tools, resources, and prompt templates.
 
-**Transport Topology:**
-- **stdio (Standard Input/Output):** Local process subprocess execution with sub-millisecond JSON-RPC line delimited messages. Ideal for local filesystem, IDE, and terminal tools.
-- **SSE (Server-Sent Events over HTTP):** Asynchronous streaming over HTTP POST (client -> server commands) and SSE (server -> client event stream) for remote distributed tool servers.
+**Current Transport Layers:**
+- **stdio (Standard Input/Output):** Local process subprocess execution with line-delimited JSON-RPC messages. Ideal for local filesystem, IDE, and terminal tools.
+- **Streamable HTTP:** The recommended transport for remote MCP servers — HTTP requests with optional streaming responses.
+- **Legacy HTTP+SSE:** Deprecated and retained only for backward compatibility; new remote implementations should not adopt it.
 
 **Primitives:**
 - \`Tools\`: Invokable functions with JSON schemas.

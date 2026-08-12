@@ -37,7 +37,7 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({ example, onCodeRun }) => {
       setExecTime(data.executionTimeMs);
       if (onCodeRun) onCodeRun();
     } catch {
-      setOutput('[ERROR] Sandbox execution failed. Verify server connection.');
+      setOutput('[ERROR] Simulation request failed. Verify server connection.');
     } finally {
       setIsRunning(false);
     }
@@ -79,7 +79,7 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({ example, onCodeRun }) => {
             ) : (
               <Play className="w-3.5 h-3.5 fill-current" />
             )}
-            <span>{isRunning ? 'Running...' : 'Run & Simulate'}</span>
+            <span>{isRunning ? 'Simulating...' : 'Simulate Expected Output'}</span>
           </button>
         </div>
       </div>
@@ -101,7 +101,7 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({ example, onCodeRun }) => {
           <div className="flex items-center justify-between mb-2 text-slate-400 font-sans">
             <div className="flex items-center gap-2">
               <Terminal className="w-4 h-4 text-emerald-400" />
-              <span className="font-bold text-slate-200">Execution Output</span>
+              <span className="font-bold text-slate-200">Simulated Output (not executed)</span>
             </div>
             {execTime && <span className="text-[11px] text-slate-500">Duration: {execTime}ms</span>}
           </div>

@@ -2,7 +2,7 @@
 
 Interactive AI/ML engineering training platform. Two parts live in this repo:
 
-- Root web app: React 19 + Vite 6 SPA served by an Express server (`server.ts`) that also proxies Gemini and code-simulation endpoints.
+- Root web app: React 19 + Vite 6 SPA served by an Express server (`server.ts`) that proxies xAI Grok for the AI Mentor and serves canned code-simulation previews.
 - `labs/module-1..5`: standalone Python exercises, each with its own `requirements.txt` and `pytest` suite (validated by the `.github/workflows/*-lab.yml` CI jobs).
 
 ## Cursor Cloud specific instructions
@@ -11,6 +11,8 @@ Interactive AI/ML engineering training platform. Two parts live in this repo:
 - Run in development with `npm run dev` (runs `tsx server.ts`, Express + Vite middleware) and listens on `http://0.0.0.0:3000`. There is no separate Vite port — the Express server serves the SPA.
 - Lint is `npm run lint` (`tsc --noEmit`); build is `npm run build` (Vite + esbuild bundle of the server). The esbuild `import.meta` warning during build is benign — dev mode uses `tsx`, not the bundled `dist/server.cjs`.
 - `XAI_API_KEY` is required for live AI Mentor replies (see `.env.example`). Without it, `/api/ai/chat` returns high-quality canned "curriculum engine" fallback answers, so the UI still works end-to-end. Optional `XAI_MODEL` overrides the default `grok-4.6`. Check `curl -s localhost:3000/api/health` for `hasXaiKey` and `model`.
+- `/api/ai/chat` is rate-limited (default 20 req/min/IP) and truncates oversized prompts/history. Upstream xAI error bodies are logged server-side only — clients get a generic fallback message.
+- Theory/mentor content uses Markdown + KaTeX (`MarkdownContent`). Lab "Preview Expected Logs" is canned simulation; certificate unlock requires confirmed lab evidence + passing quizzes.
 
 ### Python labs
 - Each lab is isolated in its own virtualenv at `labs/module-*/.venv` because their dependencies conflict across labs (e.g. `mcp` in module-3 needs a newer `starlette` than `fastapi` in module-4). Do NOT install all lab requirements into one shared environment.

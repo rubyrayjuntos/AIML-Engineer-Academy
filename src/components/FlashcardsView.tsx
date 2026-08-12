@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { allFlashcards } from '../data/curriculumData';
+import { MarkdownContent } from './MarkdownContent';
 import { Layers, RotateCcw, CheckCircle2, ChevronRight, ChevronLeft } from 'lucide-react';
 
 interface FlashcardsViewProps {
@@ -93,13 +94,11 @@ export const FlashcardsView: React.FC<FlashcardsViewProps> = ({ learnedFlashcard
                 </div>
               ) : (
                 <div className="space-y-4 text-left">
-                  <p className="text-sm text-slate-800 leading-relaxed font-medium">
-                    {currentCard.definition}
-                  </p>
+                  <MarkdownContent content={currentCard.definition} tone="light" />
 
-                  <div className="p-3 bg-slate-950 text-amber-300 rounded-2xl font-mono text-xs border border-slate-800">
+                  <div className="p-3 bg-slate-950 text-amber-300 rounded-2xl border border-slate-800">
                     <strong className="text-slate-400 font-sans text-[10px] uppercase block mb-1">Key Takeaway</strong>
-                    <div>{currentCard.keyTakeaway}</div>
+                    <MarkdownContent content={currentCard.keyTakeaway} tone="dark" />
                   </div>
                 </div>
               )}

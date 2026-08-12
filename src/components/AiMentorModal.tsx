@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ChatMessage } from '../types';
+import { MarkdownContent } from './MarkdownContent';
 import { Sparkles, X, Send, Bot, User } from 'lucide-react';
 
 interface AiMentorModalProps {
@@ -48,6 +49,21 @@ export const AiMentorModal: React.FC<AiMentorModalProps> = ({ isOpen, onClose, c
           conversationHistory: messages.slice(-4)
         })
       });
+
+      if (res.status === 429) {
+        const limited = await res.json().catch(() => ({}));
+        setMessages(prev => [
+          ...prev,
+          {
+            id: (Date.now() + 1).toString(),
+            role: 'assistant',
+            content: `Rate limit reached. Please wait ${limited.retryAfterSec || 'a minute'} and try again.`,
+            timestamp: 'Just now',
+            source: 'rate_limit'
+          }
+        ]);
+        return;
+      }
 
       const data = await res.json();
       const assistantMsg: ChatMessage = {
@@ -128,7 +144,13 @@ export const AiMentorModal: React.FC<AiMentorModalProps> = ({ isOpen, onClose, c
                     : 'bg-slate-900 text-slate-200 border border-slate-800 rounded-tl-none'
                 }`}
               >
-                <div className="whitespace-pre-line leading-relaxed">{msg.content}</div>
+                <div className="leading-relaxed">
+                  {msg.role === 'assistant' ? (
+                    <MarkdownContent content={msg.content} tone="dark" />
+                  ) : (
+                    <div className="whitespace-pre-line">{msg.content}</div>
+                  )}
+                </div>
                 {msg.source && (
                   <div className="text-[10px] font-mono text-slate-400 pt-1 border-t border-slate-800">
                     Source Engine: {msg.source}
