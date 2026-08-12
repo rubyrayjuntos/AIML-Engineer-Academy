@@ -553,20 +553,21 @@ print("diffusion schedule ok", round(float(alpha_bar[-1]), 6))
     slug: 'agent-orchestration',
     tag: 'MODULE 03',
     title: 'AI Agent Orchestration & Protocol Standards',
-    subtitle: 'ReAct, Model Context Protocol (MCP), PydanticAI & LangGraph',
-    description: 'Build autonomous cyclic agentic workflows. Master ReAct loops, current Model Context Protocol transports, type-safe PydanticAI tools, and LangGraph state machines.',
-    estimatedHours: 16,
+    subtitle: 'ReAct, MCP, PydanticAI, LangGraph & Browser Computer-Use',
+    description: 'Build autonomous cyclic agentic workflows. Master ReAct loops, Model Context Protocol transports, type-safe PydanticAI tools, LangGraph state machines, and governed browser / computer-use agents.',
+    estimatedHours: 18,
     prerequisites: ['Module 1 & 2', 'JSON Schema', 'Python Type Hints'],
     competencyContract: {
-      explain: ['ReAct loops, state machines, RAG versus fine-tuning, and agent memory', 'MCP primitives and current transports', 'Structured output, retries, and human approval boundaries'],
-      buildAndDebug: ['Build a PydanticAI structured-output agent', 'Connect an MCP server and client to a read-only SQLite tool', 'Implement retrieval plus validation and error recovery'],
-      evidenceRequired: ['Runnable agent repository and MCP protocol trace', 'Agent tests and example evaluation set', 'Threat model']
+      explain: ['ReAct loops, state machines, RAG versus fine-tuning, and agent memory', 'MCP primitives and current transports', 'Structured output, retries, human approval boundaries, and browser/computer-use action spaces'],
+      buildAndDebug: ['Build a PydanticAI structured-output agent', 'Connect an MCP server and client to a read-only SQLite tool', 'Design a governed browser-tool loop with untrusted page observations and write-action approval'],
+      evidenceRequired: ['Runnable agent repository and MCP protocol trace', 'Agent tests and example evaluation set', 'Threat model covering tool and browser IPI surfaces']
     },
     objectives: [
       'Master the ReAct (Reasoning + Acting) loop mechanics and reflection loops',
       'Implement MCP servers using stdio locally and Streamable HTTP remotely',
       'Build deterministic, type-safe tool-calling agents using PydanticAI with output_type validation',
-      'Construct cyclic multi-agent state machines using LangGraph with human-in-the-loop nodes'
+      'Construct cyclic multi-agent state machines using LangGraph with human-in-the-loop nodes',
+      'Design browser / computer-use agents with least-privilege tools, a11y observations, and HITL gates for consequential actions'
     ],
     sections: [
       {
@@ -607,6 +608,23 @@ print("diffusion schedule ok", round(float(alpha_bar[-1]), 6))
 
 - **PydanticAI:** Uses Python type hints and Pydantic \`output_type\` schemas. If an LLM returns malformed structured output, PydanticAI can return validation feedback to the model and retry within configured limits.
 - **LangGraph:** Conceptualizes agent workflows as directed cyclic graphs. Essential for multi-agent loops with persistent state checkpoints, branching logic, and human approval gates.`
+      },
+      {
+        title: '3.5 Browser & Computer-Use Agents (Action Spaces, Observation, Governance)',
+        content: `Browser / computer-use agents control a real UI (DOM or OS) instead of only APIs. They still run a ReAct loop, but the **action space** and **observation channel** change the threat model.
+
+**Action Space (least privilege):**
+- Prefer typed tools such as \`navigate\`, \`click\`, \`type\`, \`scroll\`, and \`extract_a11y\` over a raw "execute arbitrary JS" escape hatch.
+- Separate **read** tools (inspect page) from **write** tools (submit forms, purchase, send messages). Write tools require a human approval gate.
+
+**Observation Channels:**
+- **Accessibility / DOM snapshots:** Structured trees of roles, names, and values — usually cheaper in tokens and more stable than screenshots for form filling.
+- **Screenshots:** Useful for visual layout and CAPTCHA-like UI, but expensive and easy to poison with adversarial pixels/overlays.
+
+**Governance & Security:**
+- Treat every page as **untrusted** (Indirect Prompt Injection). Never feed raw HTML into a privileged planner that holds credentials — use a quarantined sanitizer (Module 4 Dual-LLM pattern).
+- Prefer allowlisted origins, timeouts, and screenshot redaction. Log every tool call for audit.
+- Flaky selectors and serial click latency dominate reliability; invest in a11y selectors and retries before adding more model IQ.`
       }
     ],
     codeExamples: [
@@ -670,6 +688,50 @@ if __name__ == "__main__":
     mcp.run(transport="stdio")
 `,
         explanation: 'Defines an MCP tool and resource over the stdio transport using Anthropic FastMCP SDK.'
+      },
+      {
+        id: 'c3_browser_tools',
+        title: 'Typed Browser Tool Surface (Playwright-style stubs)',
+        language: 'python',
+        filename: 'browser_tools.py',
+        code: `from enum import Enum
+from typing import Literal
+from pydantic import BaseModel, Field, HttpUrl
+
+class BrowserAction(str, Enum):
+    NAVIGATE = "navigate"
+    CLICK = "click"
+    TYPE = "type"
+    SCROLL = "scroll"
+    EXTRACT_A11Y = "extract_a11y"
+
+class BrowserToolCall(BaseModel):
+    action: BrowserAction
+    url: HttpUrl | None = None
+    selector: str | None = Field(default=None, description="Prefer role+name a11y selectors")
+    text: str | None = None
+    requires_approval: bool = False
+
+WRITE_ACTIONS = {BrowserAction.TYPE, BrowserAction.CLICK}  # click may submit; gate carefully
+
+def plan_tool(call: BrowserToolCall) -> dict:
+    """Teaching stub: classify read vs write before any real Playwright call."""
+    is_write = call.action in WRITE_ACTIONS and call.requires_approval
+    if call.action == BrowserAction.NAVIGATE and call.url is None:
+        raise ValueError("navigate requires url")
+    return {
+        "action": call.action.value,
+        "status": "awaiting_approval" if is_write else "ready",
+        "observation_kind": "a11y" if call.action == BrowserAction.EXTRACT_A11Y else "none",
+        "untrusted": True,  # page content is always untrusted IPI surface
+    }
+
+# Example: inspect a page without write privileges
+print(plan_tool(BrowserToolCall(action=BrowserAction.EXTRACT_A11Y, selector="main")))
+# Example: form fill must be flagged for HITL
+print(plan_tool(BrowserToolCall(action=BrowserAction.TYPE, selector="textbox:Search", text="Acme", requires_approval=True)))
+`,
+        explanation: 'Defines a least-privilege browser tool schema. Real Playwright/CDP runtimes plug in behind this boundary; CI should not require a live browser.'
       }
     ],
     lab: {
@@ -764,6 +826,32 @@ if proposal.status.value == "awaiting_approval":
         answerIndex: 1,
         explanation: 'RAG updates the corpus/index quickly and preserves source citations; fine-tuning better fits style/format and stable skills.',
         concept: 'RAG vs Fine-Tuning'
+      },
+      {
+        id: 'q3_5',
+        question: 'Why should browser / computer-use agents prefer accessibility snapshots over raw screenshots when filling forms?',
+        options: [
+          'Because Softmax cannot attend to image patches',
+          'A11y/DOM trees are usually cheaper in tokens, more stable for role+name selectors, and easier to gate than full-pixel observations',
+          'Screenshots are cryptographically signed by the browser',
+          'Accessibility trees permanently delete Indirect Prompt Injection risk'
+        ],
+        answerIndex: 1,
+        explanation: 'Screenshots still matter for visual layout, but structured a11y observations usually win for cost and selector reliability. Page content remains untrusted either way.',
+        concept: 'Computer-Use Observation'
+      },
+      {
+        id: 'q3_6',
+        question: 'Which governance rule belongs in a production browser-agent tool policy?',
+        options: [
+          'Allow one unrestricted evaluate_js tool for every site',
+          'Feed raw HTML into the privileged planner that holds user credentials',
+          'Require human approval before consequential write actions (submit, purchase, message send) and treat page content as an IPI surface',
+          'Disable timeouts so long-running clicks can always finish'
+        ],
+        answerIndex: 2,
+        explanation: 'Write actions need HITL; untrusted page text must not directly control privileged tools. Prefer allowlisted origins and least-privilege typed tools.',
+        concept: 'Browser Agent Governance'
       }
     ],
     flashcards: [
@@ -780,6 +868,20 @@ if proposal.status.value == "awaiting_approval":
         category: 'Agent Cognitive Logic',
         definition: 'An agent execution cycle interleaving Reasoning (Thought), Environmental interaction (Action), and Feedback processing (Observation).',
         keyTakeaway: 'Enables LLMs to break down complex goals into multi-step tool calls.'
+      },
+      {
+        id: 'fc3_3',
+        term: 'Computer-Use / Browser Agent',
+        category: 'Agent Orchestration',
+        definition: 'An agent that acts through a UI runtime (browser DOM/CDP or OS automation) via typed tools such as navigate, click, type, and extract — not only HTTP APIs.',
+        keyTakeaway: 'Same ReAct loop as API agents, harder threat model: untrusted pages, flaky selectors, and consequential writes.'
+      },
+      {
+        id: 'fc3_4',
+        term: 'Accessibility Snapshot Observation',
+        category: 'Computer-Use',
+        definition: 'A structured tree of UI roles, names, and values used as the agent Observation instead of (or before) raw screenshots.',
+        keyTakeaway: 'Usually lower token cost and more stable selectors than pixels; still untrusted content for IPI purposes.'
       }
     ]
   },
@@ -788,20 +890,21 @@ if proposal.status.value == "awaiting_approval":
     slug: 'applied-ai-system-design',
     tag: 'MODULE 04',
     title: 'Secure Model Serving & Measured Benchmarking',
-    subtitle: 'Inference APIs, Concurrency Controls, Load Testing & vLLM Architecture',
-    description: 'Build a secured inference endpoint, generate concurrent load, measure latency and throughput, enforce regression budgets, and connect CPU-verifiable serving mechanics to vLLM production architecture.',
-    estimatedHours: 18,
+    subtitle: 'Inference APIs, PagedAttention, Speculative Decoding & Security',
+    description: 'Build a secured inference endpoint, generate concurrent load, measure latency and throughput, enforce regression budgets, connect CPU-verifiable serving mechanics to vLLM architecture, and apply speculative decoding teaching models.',
+    estimatedHours: 20,
     prerequisites: ['Module 1-3', 'Distributed Systems basics', 'Virtual Memory concepts'],
     competencyContract: {
-      explain: ['TTFT, ITL, throughput, continuous batching, and PagedAttention', 'Prefill/decode separation, caching, and chat/browser/SQL agent topologies', 'Indirect prompt injection and privilege boundaries'],
-      buildAndDebug: ['Run the authenticated FastAPI inference endpoint under concurrent load', 'Measure p50/p95/p99 latency and throughput with regression budgets', 'Exercise auth, rate limits, timeouts, and security headers'],
+      explain: ['TTFT, ITL, throughput, continuous batching, PagedAttention, and speculative decoding', 'Prefill/decode separation, caching, and chat/browser/SQL agent topologies', 'Indirect prompt injection and privilege boundaries'],
+      buildAndDebug: ['Run the authenticated FastAPI inference endpoint under concurrent load', 'Measure p50/p95/p99 latency and throughput with regression budgets', 'Estimate speculative-decoding acceptance length / teaching speedup and exercise auth/rate limits'],
       evidenceRequired: ['Passing serving/security tests', 'Measured benchmark JSON (CPU engine; not GPU/vLLM)', 'Evidence artifact and threat-model notes']
     },
     objectives: [
       'Deconstruct vLLM PagedAttention virtual memory block allocation to eliminate KV cache fragmentation',
       'Evaluate supported block sizes for a specific vLLM version, model kernel, and accelerator',
       'Architect Disaggregated Prefill & Decode GPU clusters with FlowKV RDMA streaming',
-      'Implement production serving boundaries: authentication, request limits, timeouts, concurrency control, rate limiting, and measurable performance gates'
+      'Implement production serving boundaries: authentication, request limits, timeouts, concurrency control, rate limiting, and measurable performance gates',
+      'Explain speculative decoding (draft/target, γ, acceptance) and when it helps memory-bound decode'
     ],
     sections: [
       {
@@ -834,6 +937,21 @@ if proposal.status.value == "awaiting_approval":
 - **Privileged Primary Agent:** Has access to system tools and user credentials, but NEVER reads untrusted raw external data directly.
 - **Tool-Input Firewall (Minimizer):** Intercepts tool parameters and strips away PII/unneeded fields before calling backend APIs.
 - **Tool-Output Firewall (Sanitizer):** A quarantined, low-privilege model that reads untrusted raw external content, summarizes/sanitizes it, and returns safe structured text to the primary agent.`
+      },
+      {
+        title: '4.4 Speculative Decoding (Draft Models, Acceptance & MTP Drafts)',
+        content: `Autoregressive decode is usually **memory-bandwidth bound**: each new token needs a full forward pass over large weights even when arithmetic intensity is low. **Speculative decoding** raises tokens per expensive target forward by drafting multiple candidates cheaply, then verifying them in parallel on the target.
+
+**Algorithm (Leviathan / Chen-style teaching form):**
+1. A small **draft** model (or MTP heads trained in Module 2.4) proposes $\\gamma$ future tokens.
+2. The large **target** model scores the drafted prefix in one (or few) parallel forward(s).
+3. Tokens are **accepted** left-to-right while draft and target distributions agree under an acceptance test; on the first rejection, sample a corrected token from an adjusted distribution and stop the draft streak.
+4. Correct acceptance sampling preserves the **target model’s output distribution** — speed changes, not the intended sampling law.
+
+**Engineering Notes:**
+- Speedup ≈ (accepted draft tokens + bonus) / wall time of draft+verify versus baseline 1-token decode. Low acceptance rates can erase gains.
+- Helps most when target decode is memory-bound and drafts are cheap/accurate. Prefill-heavy or tiny models may see little benefit.
+- Serving stacks (e.g. vLLM speculative configs) expose draft model paths and $\\gamma$; treat published speedups as workload-specific measurements, not universal constants.`
       }
     ],
     codeExamples: [
@@ -882,6 +1000,38 @@ safe_context = tool_output_sanitizer(untrusted_webpage)
 print("Sanitized Output for Privileged Agent:", safe_context)
 `,
         explanation: 'Demonstrates why keyword filtering is not a production security boundary. Production systems require untrusted-content quarantine, typed boundary objects, allowlisted least-privilege tools, and human approval for consequential actions.'
+      },
+      {
+        id: 'c4_speculative',
+        title: 'Speculative Decoding Teaching Estimate',
+        language: 'python',
+        filename: 'speculative_estimate.py',
+        code: `def expected_accepted_length(gamma: int, accept_prob: float) -> float:
+    """Expected accepted draft tokens before first reject, plus the bonus token.
+
+    Teaching i.i.d. model: each drafted token is accepted independently with
+    probability p until the first rejection (or gamma drafts are exhausted).
+    """
+    p = accept_prob
+    # E[number of accepted drafts] = sum_{k=1..gamma} p^k
+    accepted_drafts = sum(p**k for k in range(1, gamma + 1))
+    # Always emit one bonus/corrected token from the target verify step
+    return accepted_drafts + 1.0
+
+def speculative_speedup(gamma: int, accept_prob: float, t_draft: float, t_verify: float) -> float:
+    """tokens_per_cycle / time_per_cycle vs baseline (1 token per t_verify)."""
+    tokens = expected_accepted_length(gamma, accept_prob)
+    cycle_time = gamma * t_draft + t_verify
+    baseline_tps = 1.0 / t_verify
+    return (tokens / cycle_time) / baseline_tps
+
+gamma, p = 5, 0.7
+print("E[tokens/cycle]=", round(expected_accepted_length(gamma, p), 3))
+print("teaching speedup vs baseline=", round(speculative_speedup(gamma, p, t_draft=0.2, t_verify=1.0), 3))
+# Production: wire draft/target models via your serving stack (e.g. vLLM speculative config).
+# Do not treat this estimate as a measured GPU result.
+`,
+        explanation: 'Closed-form teaching estimate of accepted length and speedup under an i.i.d. acceptance probability. Real stacks preserve the target distribution via proper acceptance sampling; measure on your hardware.'
       }
     ],
     lab: {
@@ -902,17 +1052,20 @@ print("Sanitized Output for Privileged Agent:", safe_context)
         'python -m app.benchmark --output artifacts/benchmark.json',
         'python -m app.evidence --output artifacts/evidence.json'
       ],
-      expectedOutput: 'Serving/security tests pass; measured benchmark meets error-rate, p95 latency, and throughput budgets.',
+      expectedOutput: 'Serving/security tests pass (including speculative teaching helpers); measured benchmark meets error-rate, p95 latency, and throughput budgets.',
       starterCode: {
         id: 'lab4_starter',
-        title: 'Measured Serving Benchmark',
+        title: 'Speculative Decode Smoke + Serving Benchmark',
         language: 'python',
-        filename: 'labs/module-4-secure-serving/app/benchmark.py',
-        code: `report = await run_benchmark(requests=40, concurrency=8)
-gates = evaluate_budgets(report)
-assert all(gates.values()), {"results": report["results"], "gates": gates}
+        filename: 'labs/module-4-secure-serving/app/speculation.py',
+        code: `from app.speculation import expected_accepted_length, speculative_speedup
+
+assert expected_accepted_length(1, 0.0) == 1.0
+speedup = speculative_speedup(5, 0.7, t_draft=0.2, t_verify=1.0)
+print("teaching speedup", round(speedup, 3))
+# Then run the measured FastAPI benchmark path (CPU engine — not GPU/vLLM).
 `,
-        explanation: 'Runs concurrent requests through the real ASGI inference path, records percentile latency and throughput, and fails on explicit regression budgets.'
+        explanation: 'Smoke-checks closed-form speculative helpers before exercising the authenticated FastAPI benchmark path.'
       }
     },
     quizzes: [
@@ -967,6 +1120,32 @@ assert all(gates.values()), {"results": report["results"], "gates": gates}
         answerIndex: 1,
         explanation: 'Serving security and capacity controls are part of the product, not optional polish — the module-4 lab exercises these on a CPU path.',
         concept: 'Secure Serving'
+      },
+      {
+        id: 'q4_5',
+        question: 'What does correct speculative-decoding acceptance sampling preserve?',
+        options: [
+          'The draft model’s exact token distribution only',
+          'The target model’s intended output distribution while potentially emitting multiple tokens per expensive target forward',
+          'Bitwise-identical GPU kernels across all vendors',
+          'Zero KV-cache memory usage for long contexts'
+        ],
+        answerIndex: 1,
+        explanation: 'Acceptance tests are designed so accepted (and corrected) tokens still follow the target sampling distribution; the win is wall-clock tokens per second, not a different model law.',
+        concept: 'Speculative Decoding'
+      },
+      {
+        id: 'q4_6',
+        question: 'When is speculative decoding most likely to help?',
+        options: [
+          'Only during prompt prefill on tiny CPU models where arithmetic is the bottleneck',
+          'When target decode is memory-bandwidth bound and a cheaper draft proposes accurate γ-token prefixes with a healthy acceptance rate',
+          'Whenever γ is set to 1 regardless of acceptance rate',
+          'Only if PagedAttention block_size is forced to 1'
+        ],
+        answerIndex: 1,
+        explanation: 'Gains come from replacing several target forwards with one verify when drafts are cheap and often correct. Low acceptance or draft-heavy cost can erase the benefit — measure on the deployed stack.',
+        concept: 'Speculative Decoding Workloads'
       }
     ],
     flashcards: [
@@ -983,6 +1162,20 @@ assert all(gates.values()), {"results": report["results"], "gates": gates}
         category: 'AI Security',
         definition: 'A security vulnerability where an agent ingests untrusted third-party data containing adversarial commands designed to hijack control.',
         keyTakeaway: 'Requires Dual-LLM privilege separation (Minimizer & Sanitizer firewalls).'
+      },
+      {
+        id: 'fc4_3',
+        term: 'Speculative Decoding',
+        category: 'Inference Optimization',
+        definition: 'A decode acceleration method where a cheap draft proposes γ tokens and a target model verifies/accepts them in parallel so multiple tokens can advance per expensive target forward.',
+        keyTakeaway: 'Preserves the target distribution under correct acceptance sampling; speedup is workload- and acceptance-rate dependent.'
+      },
+      {
+        id: 'fc4_4',
+        term: 'Draft Model / Acceptance Rate',
+        category: 'Inference Optimization',
+        definition: 'The smaller proposer (or MTP head) that suggests tokens, and the fraction of those tokens the target accepts before the first rejection.',
+        keyTakeaway: 'If acceptance collapses, speculative decoding can be slower than ordinary decode — tune γ and draft quality.'
       }
     ]
   },
@@ -1269,6 +1462,40 @@ export const systemBlueprints: ArchitectureBlueprint[] = [
     ],
     scalingBottlenecks: [
       'Database connection pool exhaustion under high concurrent analytic queries'
+    ]
+  },
+  {
+    id: 'bp_browser_agent',
+    title: 'Governed Browser / Computer-Use Agent',
+    tagline: 'Least-privilege Playwright-style tools, a11y observations, Dual-LLM page quarantine & HITL writes',
+    overview: 'Browser agent topology that treats page content as an Indirect Prompt Injection surface: a privileged planner never reads raw HTML, typed browser tools are least-privilege, and consequential writes stop at a human approval gate.',
+    nodes: [
+      { id: 'n_user', label: 'Operator / Client', type: 'client', description: 'Submits a goal (e.g. “renew license on vendor portal”) and approves consequential writes.', latencyAvgMs: 0 },
+      { id: 'n_planner', label: 'Privileged Planner LLM', type: 'llm', description: 'Owns credentials and tool policy; only sees sanitized structured observations — never raw page HTML.', latencyAvgMs: 380 },
+      { id: 'n_firewall', label: 'Tool Firewall / Minimizer', type: 'security', description: 'Allowlists origins, strips secrets from tool args, enforces timeouts and read vs write tool classes.', latencyAvgMs: 25 },
+      { id: 'n_browser', label: 'Browser Tool Runtime', type: 'tool', description: 'Playwright/CDP-style runtime exposing navigate, click, type, scroll, extract_a11y (no arbitrary JS by default).', latencyAvgMs: 220 },
+      { id: 'n_sanitizer', label: 'Quarantined Page Sanitizer', type: 'security', description: 'Low-privilege path that turns untrusted DOM/a11y/screenshot text into typed safe summaries for the planner.', latencyAvgMs: 160 },
+      { id: 'n_hitl', label: 'HITL Approval Gate', type: 'gateway', description: 'Blocks submit/purchase/message-send until a human records an explicit decision.', latencyAvgMs: 50 }
+    ],
+    edges: [
+      { from: 'n_user', to: 'n_planner', label: '1. Goal + policy constraints', protocol: 'HTTP/SSE' },
+      { from: 'n_planner', to: 'n_firewall', label: '2. Typed tool intent', protocol: 'stdio' },
+      { from: 'n_firewall', to: 'n_browser', label: '3. Allowlisted browser action', protocol: 'HTTP/SSE' },
+      { from: 'n_browser', to: 'n_sanitizer', label: '4. Raw a11y / screenshot (untrusted)', protocol: 'HTTP/SSE' },
+      { from: 'n_sanitizer', to: 'n_planner', label: '5. Minimized typed observation', protocol: 'stdio' },
+      { from: 'n_planner', to: 'n_hitl', label: '6. Write action proposal', protocol: 'HTTP/SSE' },
+      { from: 'n_hitl', to: 'n_user', label: '7. Approval / rejection', protocol: 'HTTP/SSE' }
+    ],
+    securityConsiderations: [
+      'Treat every page observation as untrusted IPI input — Dual-LLM quarantine before the privileged planner',
+      'Least-privilege tool surface: no default evaluate_js; separate read tools from write tools',
+      'Human approval required before form submit, purchase, credential entry, or outbound messaging',
+      'Allowlist origins, enforce navigation timeouts, redact secrets from screenshots/logs'
+    ],
+    scalingBottlenecks: [
+      'Serial UI actions and flaky selectors dominate wall-clock latency versus pure API agents',
+      'Screenshot observations inflate token cost and latency versus a11y snapshots',
+      'HITL queues become the throughput ceiling for consequential workflows'
     ]
   }
 ];

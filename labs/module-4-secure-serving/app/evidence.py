@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 
 from app.benchmark import evaluate_budgets, run_benchmark
+from app.speculation import expected_accepted_length, speculative_speedup
 
 
 def generate(output: Path) -> dict:
@@ -17,6 +18,13 @@ def generate(output: Path) -> dict:
         "constant-time API-key comparison", "strict typed request bounds", "rate limiting",
         "bounded concurrency", "inference timeout", "request correlation", "no-store responses",
     ]
+    report["speculative_decoding_teaching"] = {
+        "gamma": 5,
+        "accept_prob": 0.7,
+        "expected_tokens_per_cycle": round(expected_accepted_length(5, 0.7), 4),
+        "teaching_speedup": round(speculative_speedup(5, 0.7, 0.2, 1.0), 4),
+        "note": "CPU closed-form estimate only; not a GPU/vLLM measurement",
+    }
     report["claims"] = {"gpu_used": False, "vllm_measured": False, "local_cpu_path_measured": True}
     report["rubric"] = [
         {"competency": name, "points": 10} for name in [
