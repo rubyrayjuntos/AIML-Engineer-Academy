@@ -1,6 +1,6 @@
 {
   "name": "AI Engineer Academy",
-  "description": "A comprehensive interactive training platform and command center for modern AI/ML Engineers covering LLM architectures, agent orchestration, system design, and production deployment.",
+  "description": "Interactive AI/ML engineer training platform with curriculum UI, simulators, xAI Grok mentor, and evidence-backed Python labs.",
   "requestFramePermissions": [],
   "majorCapabilities": []
 }

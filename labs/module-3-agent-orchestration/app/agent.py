@@ -18,17 +18,14 @@ class ToolFailure(RuntimeError):
 def execute_with_policy(fn: Callable, *args, retries: int = 2, timeout_seconds: float = 1.0):
     """Run a tool with a bounded timeout and retry budget."""
     last_error: Exception | None = None
-    for _ in range(retries + 1):
-        pool = ThreadPoolExecutor(max_workers=1)
-        future = pool.submit(fn, *args)
-        try:
-            result = future.result(timeout=timeout_seconds)
-            pool.shutdown(wait=True)
-            return result
-        except (TimeoutError, Exception) as exc:
-            last_error = exc
-            future.cancel()
-            pool.shutdown(wait=False, cancel_futures=True)
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        for _ in range(retries + 1):
+            future = pool.submit(fn, *args)
+            try:
+                return future.result(timeout=timeout_seconds)
+            except (TimeoutError, Exception) as exc:
+                last_error = exc
+                future.cancel()
     raise ToolFailure(f"tool failed after {retries + 1} attempts: {last_error}")
 
 

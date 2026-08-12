@@ -79,13 +79,16 @@ export const QuizView: React.FC<QuizViewProps> = ({ onRecordProgramScore }) => {
                   return (
                     <button
                       key={optIdx}
+                      type="button"
+                      aria-pressed={isSelected}
                       onClick={() => !isSubmitted && setUserAnswers(prev => ({ ...prev, [q.id]: optIdx }))}
                       className={`w-full text-left p-3.5 rounded-xl text-xs font-medium transition-all border ${
                         isSelected
-                          ? 'bg-indigo-600 text-white border-indigo-600 font-bold shadow-md shadow-indigo-200'
+                          ? 'bg-indigo-600 text-white border-indigo-600 font-bold shadow-md shadow-indigo-200 ring-2 ring-indigo-300'
                           : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
                       }`}
                     >
+                      <span className="font-mono font-bold mr-2 opacity-70">{String.fromCharCode(65 + optIdx)}.</span>
                       {opt}
                     </button>
                   );

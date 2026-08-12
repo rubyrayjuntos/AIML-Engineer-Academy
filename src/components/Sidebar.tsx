@@ -1,18 +1,23 @@
 import React from 'react';
 import { modulesData } from '../data/curriculumData';
-import { LayoutDashboard, Sliders, Network, Layers, CheckSquare, Cpu } from 'lucide-react';
+import { UserProgress } from '../types';
+import { LayoutDashboard, Sliders, Network, Layers, CheckSquare, BookOpen } from 'lucide-react';
+import { evaluateCertificateEligibility } from './CertificateModal';
 
 interface SidebarProps {
   activeView: string;
   setActiveView: (view: string) => void;
-  completedModules: number[];
+  progress: UserProgress;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ activeView, setActiveView, completedModules }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ activeView, setActiveView, progress }) => {
+  const completedModules = progress.completedModules;
+  const labsConfirmed = Object.values(progress.labCompletions).filter(Boolean).length;
+  const certificateReady = evaluateCertificateEligibility(progress).eligible;
+
   return (
     <aside className="w-full md:w-64 bg-white border-r border-slate-200 shrink-0 md:h-[calc(100vh-61px)] md:sticky md:top-[61px] overflow-y-auto p-4 flex flex-col justify-between">
       <div className="space-y-6">
-        {/* Main Navigation */}
         <div>
           <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider px-3 block mb-2">
             Main Portal
@@ -32,7 +37,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeView, setActiveView, com
           </nav>
         </div>
 
-        {/* Modules Section */}
         <div>
           <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider px-3 block mb-2">
             Learning Tracks
@@ -59,7 +63,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeView, setActiveView, com
                     <span className="truncate">{m.title}</span>
                   </div>
                   {isDone && (
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" aria-label="completed"></span>
                   )}
                 </button>
               );
@@ -67,7 +71,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeView, setActiveView, com
           </nav>
         </div>
 
-        {/* Hands-On Tools & Simulators */}
         <div>
           <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider px-3 block mb-2">
             Compute & Practice Sandbox
@@ -93,7 +96,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeView, setActiveView, com
                   : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900 font-medium'
               }`}
             >
-              <Network className="w-4 h-4 text-violet-600" />
+              <Network className="w-4 h-4 text-cyan-600" />
               <span>System Design</span>
             </button>
 
@@ -124,25 +127,31 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeView, setActiveView, com
         </div>
       </div>
 
-      {/* Available Compute Resources Widget from Sleek Theme */}
       <div className="space-y-4 pt-4">
         <div className="bg-indigo-600 rounded-2xl p-4 text-white shadow-md shadow-indigo-100">
           <div className="flex items-center justify-between mb-1">
-            <p className="text-[10px] font-semibold uppercase tracking-wider opacity-80">Available Resources</p>
-            <Cpu className="w-3.5 h-3.5 opacity-80" />
+            <p className="text-[10px] font-semibold uppercase tracking-wider opacity-80">Your Progress</p>
+            <BookOpen className="w-3.5 h-3.5 opacity-80" />
           </div>
-          <p className="text-base font-bold">142 GPU Hours</p>
+          <p className="text-base font-bold">
+            {completedModules.length}/{modulesData.length} modules · {labsConfirmed}/{modulesData.length} labs
+          </p>
           <div className="mt-2.5 w-full bg-indigo-400/50 h-1.5 rounded-full overflow-hidden">
-            <div className="bg-white h-full rounded-full w-3/4"></div>
+            <div
+              className="bg-white h-full rounded-full transition-all"
+              style={{ width: `${Math.round((completedModules.length / modulesData.length) * 100)}%` }}
+            ></div>
           </div>
+          <p className="text-[10px] mt-2 opacity-80">
+            {certificateReady ? 'Certificate requirements met' : 'Certificate still locked'}
+          </p>
         </div>
 
-        {/* Footer Status */}
         <div className="pt-2 border-t border-slate-100 text-[11px] text-slate-400 font-mono flex items-center justify-between px-1">
-          <span>AI STUDIO V3.1</span>
+          <span>NEURAL ACADEMY</span>
           <span className="text-emerald-600 font-bold flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block animate-pulse"></span>
-            ONLINE
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span>
+            LOCAL DEV
           </span>
         </div>
       </div>

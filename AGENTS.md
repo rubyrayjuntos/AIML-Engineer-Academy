@@ -11,7 +11,8 @@ Interactive AI/ML engineering training platform. Two parts live in this repo:
 - Run in development with `npm run dev` (runs `tsx server.ts`, Express + Vite middleware) and listens on `http://0.0.0.0:3000`. There is no separate Vite port — the Express server serves the SPA.
 - Lint is `npm run lint` (`tsc --noEmit` for the SPA plus `tsc -p tsconfig.node.json` for `server.ts` / Vite config). Build is `npm run build`. The esbuild `import.meta` warning during build is benign — dev mode uses `tsx`, not the bundled `dist/server.cjs`.
 - Frontend CI lives in `.github/workflows/frontend.yml`. Lab workflows under `.github/workflows/module-*-lab.yml` run Python only (no duplicated `npm ci`/lint/build).
-- Navbar search filters modules, sections, labs, quizzes, flashcards, and tools via `SearchResultsView`.
+- Sidebar/overview progress widgets reflect local `localStorage` progress (no fake GPU-hour or streak counters).
+- Root `README.md` covers web + lab quick start; keep durable Cloud-agent caveats here in AGENTS.md.
 - `XAI_API_KEY` is required for live AI Mentor replies (see `.env.example`). Without it, `/api/ai/chat` returns high-quality canned "curriculum engine" fallback answers, so the UI still works end-to-end. Optional `XAI_MODEL` overrides the default `grok-4.6`. Check `curl -s localhost:3000/api/health` for `hasXaiKey` and `model`.
 - `/api/ai/chat` is rate-limited (default 20 req/min/IP) and truncates oversized prompts/history. Upstream xAI error bodies are logged server-side only — clients get a generic fallback message.
 - Theory/mentor content uses Markdown + KaTeX (`MarkdownContent`). Lab "Preview Expected Logs" is canned simulation; certificate unlock requires confirmed lab evidence + passing quizzes.

@@ -136,7 +136,7 @@ export default function App() {
         <Sidebar
           activeView={activeView}
           setActiveView={setActiveView}
-          completedModules={progress.completedModules}
+          progress={progress}
         />
 
         <main className="flex-1 p-4 md:p-8 max-w-7xl mx-auto w-full">

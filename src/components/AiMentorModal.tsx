@@ -26,8 +26,9 @@ export const AiMentorModal: React.FC<AiMentorModalProps> = ({ isOpen, onClose, c
 
   const handleSendMessage = async (customPrompt?: string) => {
     const promptToUse = customPrompt || inputPrompt;
-    if (!promptToUse.trim()) return;
+    if (!promptToUse.trim() || isLoading) return;
 
+    const historyForRequest = messages.slice(-4);
     const userMsg: ChatMessage = {
       id: Date.now().toString(),
       role: 'user',
@@ -46,7 +47,7 @@ export const AiMentorModal: React.FC<AiMentorModalProps> = ({ isOpen, onClose, c
         body: JSON.stringify({
           prompt: promptToUse,
           context: currentContext || 'AI Engineer Curriculum',
-          conversationHistory: messages.slice(-4)
+          conversationHistory: historyForRequest
         })
       });
 
@@ -180,8 +181,10 @@ export const AiMentorModal: React.FC<AiMentorModalProps> = ({ isOpen, onClose, c
           {promptTemplates.map((tmpl, idx) => (
             <button
               key={idx}
+              type="button"
+              disabled={isLoading}
               onClick={() => handleSendMessage(tmpl)}
-              className="shrink-0 px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-all truncate max-w-xs"
+              className="shrink-0 px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-all truncate max-w-xs disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {tmpl}
             </button>
@@ -194,9 +197,10 @@ export const AiMentorModal: React.FC<AiMentorModalProps> = ({ isOpen, onClose, c
             type="text"
             placeholder="Ask your technical question..."
             value={inputPrompt}
+            disabled={isLoading}
             onChange={(e) => setInputPrompt(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-            className="flex-1 bg-slate-950 border border-slate-800 rounded-2xl px-4 py-3 text-xs text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            onKeyDown={(e) => e.key === 'Enter' && !isLoading && handleSendMessage()}
+            className="flex-1 bg-slate-950 border border-slate-800 rounded-2xl px-4 py-3 text-xs text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
           />
 
           <button
