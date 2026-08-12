@@ -23,10 +23,12 @@ async def inspect_account(account_id: str) -> dict:
             await session.initialize()
             tools = await session.list_tools()
             customer = await session.call_tool("get_customer", {"account_id": account_id})
+            schema = await session.call_tool("get_table_schema", {"table_name": "users"})
             return {
                 "transport": "stdio",
                 "tools": sorted(t.name for t in tools.tools),
                 "customer": json.loads(customer.content[0].text),
+                "users_schema": schema.content[0].text,
             }
 
 

@@ -18,6 +18,7 @@ Interactive AI/ML engineering training platform. Two parts live in this repo:
 - Theory/mentor content uses Markdown + KaTeX (`MarkdownContent`). Lab "Preview Expected Logs" is canned simulation; certificate unlock requires confirmed lab evidence + passing quizzes.
 - Simulators Hub includes a teaching-only **Diffusion Forward Process** viz (not a real image generator). Module 2 lab pytest expects **16 passed** after the diffusion schedule helpers landed in `labs/module-2-architecture`.
 - Simulators Hub also includes teaching-only **Browser / Computer-Use** and **Speculative Decoding** calculators (no live Playwright/GPU). System Design includes blueprint `bp_browser_agent`. Module 4 lab adds pure-Python speculative helpers in `app/speculation.py` (CPU teaching estimates only).
+- Module 3 lab is dual-lane: Customer Success HITL **and** read-only SQL/MCP (`SQLQueryResult` seam, `sql_guard`, analytics SQLite, MCP `get_table_schema` / `execute_readonly_sql`) plus an offline DSPy compile stub. Pytest expects **22 passed**. Hub includes `SqlAgentSimulator` (teaching-only).
 
 ### Python labs
 - Each lab is isolated in its own virtualenv at `labs/module-*/.venv` because their dependencies conflict across labs (e.g. `mcp` in module-3 needs a newer `starlette` than `fastapi` in module-4). Do NOT install all lab requirements into one shared environment.
