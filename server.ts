@@ -298,7 +298,7 @@ Pioneered in DeepSeekMath & DeepSeek-R1, GRPO completely **removes the Critic (V
 2. A deterministic reward function or judge evaluates each output $r_i$.
 3. Normalized advantages are computed relative to the group mean and std:
    $$A_i = \\frac{r_i - \\text{mean}(R)}{\\text{std}(R)}$$
-4. This reduces GPU VRAM consumption by ~50% compared to PPO, enabling massive RL scaling for complex reasoning.`;
+4. This reduces GPU VRAM consumption versus PPO by removing the critic network (realized savings are workload-dependent), enabling larger RL runs for reasoning models.`;
   }
 
   return `### AI Engineering Architecture Insight

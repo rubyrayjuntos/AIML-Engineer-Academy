@@ -15,6 +15,7 @@ import { FlashcardsView } from './components/FlashcardsView';
 import { QuizView } from './components/QuizView';
 import { AiMentorModal } from './components/AiMentorModal';
 import { CertificateModal } from './components/CertificateModal';
+import { SearchResultsView } from './components/SearchResultsView';
 import { Sliders } from 'lucide-react';
 
 const defaultProgress = (): UserProgress => ({
@@ -139,6 +140,20 @@ export default function App() {
         />
 
         <main className="flex-1 p-4 md:p-8 max-w-7xl mx-auto w-full">
+          {searchQuery.trim() ? (
+            <SearchResultsView
+              query={searchQuery}
+              onNavigate={(view) => {
+                setActiveView(view);
+                setSearchQuery('');
+              }}
+              onClear={() => {
+                setSearchQuery('');
+                setActiveView('overview');
+              }}
+            />
+          ) : (
+            <>
           {activeView === 'overview' && (
             <OverviewView
               progress={progress}
@@ -199,6 +214,8 @@ export default function App() {
           )}
 
           {activeView === 'quizzes' && <QuizView onRecordProgramScore={recordProgramQuizScore} />}
+            </>
+          )}
         </main>
       </div>
 

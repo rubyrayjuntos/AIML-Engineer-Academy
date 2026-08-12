@@ -161,27 +161,53 @@ async def stream_generate(req: PromptRequest):
         id: 'q1_1',
         question: 'Why is non-blocking asynchronous I/O (asyncio) essential when building LLM backends?',
         options: [
-          'It makes neural matrix multiplications run faster on the GPU',
-          'It prevents I/O-bound network calls to LLMs from blocking the server event loop while waiting for tokens',
-          'It automatically converts Python code into C++ binaries',
-          'It eliminates the need for Docker containers'
+          'It accelerates GEMM kernels inside the CUDA runtime',
+          'It prevents I/O-bound network waits for tokens from blocking the server event loop',
+          'It removes the need for request validation schemas',
+          'It guarantees deterministic token order across replicas'
         ],
         answerIndex: 1,
-        explanation: 'LLM inference is I/O-bound. Asyncio allows a single server process to handle thousands of concurrent client connections without waiting synchronously for individual network/token streams.',
+        explanation: 'LLM inference is I/O-bound. Asyncio lets one process multiplex many concurrent client streams without blocking on each network wait.',
         concept: 'Async Concurrency'
       },
       {
         id: 'q1_2',
-        question: 'What is the primary advantage of a multi-stage Docker build for AI applications?',
+        question: 'What is the primary advantage of a multi-stage Docker build for AI services?',
         options: [
-          'It allows running multiple GPUs inside one container',
-          'It keeps build tools/compilers in early stages and copies only compiled binaries into the final image, drastically reducing size',
-          'It automatically fine-tunes the LLM during container boot',
-          'It converts REST APIs into gRPC protocols automatically'
+          'It enables multi-GPU training inside a single container automatically',
+          'It keeps compilers and build caches in early stages and copies only runtime artifacts into the final image',
+          'It replaces health checks with GPU telemetry exporters',
+          'It converts REST handlers into gRPC stubs at build time'
         ],
         answerIndex: 1,
-        explanation: 'Multi-stage builds eliminate heavy build tools (gcc, header files, pip caches) from the production image, shrinking container footprint and improving security and deployment speed.',
+        explanation: 'Multi-stage builds drop heavyweight build tooling from the production image, shrinking size and attack surface.',
         concept: 'Containerization'
+      },
+      {
+        id: 'q1_3',
+        question: 'In an SSE streaming endpoint, what should the final frame conventionally signal?',
+        options: [
+          'HTTP 204 with an empty body and closed TCP socket only',
+          'A terminal event such as data: [DONE] so clients can end the read loop cleanly',
+          'A binary protobuf trailer with CRC checksums',
+          'A WebSocket upgrade response mid-stream'
+        ],
+        answerIndex: 1,
+        explanation: 'Clients need an explicit end marker. Many teaching/lab stacks emit a final `data: [DONE]` SSE frame after tokens.',
+        concept: 'SSE Streaming'
+      },
+      {
+        id: 'q1_4',
+        question: 'Why keep a classical TF-IDF/BM25 baseline alongside dense embeddings?',
+        options: [
+          'Sparse lexical retrieval is always strictly better than dense retrieval',
+          'Sparse methods remain strong for exact keyword matches and provide a cheap, reproducible retrieval baseline',
+          'Dense embeddings cannot be stored in vector databases',
+          'TF-IDF is required to fine-tune decoder-only LLMs'
+        ],
+        answerIndex: 1,
+        explanation: 'Hybrid retrieval pairs lexical precision with semantic recall. Sparse baselines also give you an offline, reproducible comparison point.',
+        concept: 'Hybrid Retrieval'
       }
     ],
     flashcards: [
@@ -370,29 +396,55 @@ print(f"VRAM Reduction: {((fp16_tot - q4_tot)/fp16_tot)*100:.1f}%")
     quizzes: [
       {
         id: 'q2_1',
-        question: 'How does Multi-Head Latent Attention (MLA) drastically reduce KV cache memory usage during inference?',
+        question: 'How does Multi-Head Latent Attention (MLA) reduce KV-cache pressure versus standard MHA?',
         options: [
-          'By deleting half of the prompt tokens',
-          'By projecting Key and Value vectors into a low-rank latent space vector, storing only compressed latents in memory',
-          'By routing tokens to different GPUs based on word length',
-          'By executing attention on CPU instead of GPU'
+          'By dropping alternate prompt tokens before attention',
+          'By projecting keys/values into a low-rank latent representation that is cached instead of full K/V tensors',
+          'By moving the entire attention stack onto host CPU DRAM',
+          'By replacing Softmax with a fixed hashing function'
         ],
         answerIndex: 1,
-        explanation: 'MLA projects Key and Value tensors into a low-rank compressed latent vector, storing only this tiny latent representation in the KV cache.',
+        explanation: 'MLA stores compressed latents rather than full per-head K/V tensors. Realized savings depend on baseline (MHA vs GQA), dims, RoPE handling, precision, and serving stack — not a fixed percentage.',
         concept: 'DeepSeek MLA'
       },
       {
         id: 'q2_2',
-        question: 'What is the primary breakthrough of Group Relative Policy Optimization (GRPO) over traditional PPO?',
+        question: 'What is the primary training-memory breakthrough of GRPO versus classic PPO-style RLHF?',
         options: [
-          'It eliminates the need for any prompts',
-          'It completely removes the Critic (Value) neural network by computing advantages relative to a group of candidate outputs',
-          'It allows training without GPUs',
-          'It replaces Softmax with Sigmoid'
+          'It removes the need for any reward signal',
+          'It removes the learned critic/value network by estimating advantages from a group of sampled outputs',
+          'It trains exclusively with 1-bit weights',
+          'It replaces the policy model with a frozen embedding table'
         ],
         answerIndex: 1,
-        explanation: 'GRPO removes the Critic model entirely, computing normalized advantages relative to a group of generated outputs, saving ~50% VRAM.',
+        explanation: 'GRPO estimates relative advantages inside each output group, avoiding a separate critic network. Memory savings are often large but workload-dependent — do not treat “~50% VRAM” as a universal constant.',
         concept: 'GRPO Alignment'
+      },
+      {
+        id: 'q2_3',
+        question: 'FlashAttention-3 primarily improves attention efficiency by…',
+        options: [
+          'Materializing the full N×N score matrix in HBM for every layer',
+          'Tiling attention in on-chip SRAM with asynchronous data movement (e.g., TMA) so large intermediate matrices need not be written back to HBM',
+          'Deleting rotary embeddings from all decoder layers',
+          'Running Softmax exclusively in FP64 for numerical safety'
+        ],
+        answerIndex: 1,
+        explanation: 'FlashAttention-style kernels recompute/tile Softmax on-chip and pipeline loads/computes, reducing HBM traffic that usually bottlenecks long-context attention.',
+        concept: 'FlashAttention-3'
+      },
+      {
+        id: 'q2_4',
+        question: 'In QLoRA, what is frozen in 4-bit while adapters train?',
+        options: [
+          'Only the tokenizer vocabulary embeddings',
+          'The quantized base model weights; gradients flow through small low-rank adapter matrices',
+          'The optimizer state exclusively, never the model',
+          'The attention mask pattern for every batch'
+        ],
+        answerIndex: 1,
+        explanation: 'QLoRA keeps a 4-bit base model frozen (or nearly frozen) and trains LoRA adapters, cutting trainable parameter count and VRAM versus full fine-tuning.',
+        concept: 'QLoRA'
       }
     ],
     flashcards: [
@@ -401,14 +453,14 @@ print(f"VRAM Reduction: {((fp16_tot - q4_tot)/fp16_tot)*100:.1f}%")
         term: 'Multi-Head Latent Attention (MLA)',
         category: 'LLM Architecture',
         definition: 'An attention mechanism that compresses Key-Value representations into a low-rank latent space, substantially reducing KV-cache demand for compatible architectures.',
-        keyTakeaway: 'Enables massive sequence lengths and larger batch concurrency in DeepSeek models.'
+        keyTakeaway: 'Can unlock longer contexts / higher concurrency on DeepSeek-style stacks; measure savings against your baseline attention variant.'
       },
       {
         id: 'fc2_2',
         term: 'FlashAttention-3',
         category: 'GPU Kernel Optimization',
         definition: 'An optimized self-attention algorithm for NVIDIA Hopper GPUs that uses asynchronous TMA data loads into SRAM and FP8 block quantization.',
-        keyTakeaway: 'Reaches up to 1.2 PFLOPs/s on H100 GPUs by eliminating HBM memory bandwidth bottlenecks.'
+        keyTakeaway: 'Targets HBM bandwidth bottlenecks via on-chip tiling; reported peak FLOP/s figures are hardware- and kernel-specific.'
       }
     ]
   },
@@ -581,27 +633,53 @@ if proposal.status.value == "awaiting_approval":
         id: 'q3_1',
         question: 'Which transports should a new MCP implementation use for local and remote integrations?',
         options: [
-          'FTP and SMTP',
+          'FTP for local tools and SMTP for remote tools',
           'stdio for local subprocesses and Streamable HTTP for remote servers',
-          'UDP and ICMP',
-          'GraphQL and WebSockets'
+          'UDP multicast for both local and remote tools',
+          'Legacy HTTP+SSE as the only supported remote transport'
         ],
         answerIndex: 1,
-        explanation: 'Use stdio for local process-spawned integrations and Streamable HTTP for remote servers. Legacy HTTP+SSE is deprecated and exists only for backward compatibility.',
+        explanation: 'Use stdio locally and Streamable HTTP remotely. Legacy HTTP+SSE is deprecated compatibility-only.',
         concept: 'MCP Transports'
       },
       {
         id: 'q3_2',
         question: 'How can PydanticAI handle invalid structured output when output_type is specified?',
         options: [
-          'It crashes the server immediately',
-          'It automatically catches the validation error and initiates a retry loop sending the validation error back to the LLM',
-          'It replaces missing fields with zero',
-          'It ignores the schema and returns raw string text'
+          'It always crashes the worker process on the first schema miss',
+          'It can catch validation errors and retry with the validation feedback returned to the model',
+          'It silently coerces every field to null',
+          'It disables JSON mode and returns free-form prose forever'
         ],
         answerIndex: 1,
-        explanation: 'PydanticAI catches validation errors at runtime and passes the exact validation error message back to the LLM context to prompt self-correction.',
+        explanation: 'Typed agents treat schema failures as recoverable: feed the validation error back and retry within configured limits.',
         concept: 'PydanticAI Validation'
+      },
+      {
+        id: 'q3_3',
+        question: 'In a ReAct loop, what is the Observation step?',
+        options: [
+          'The raw user prompt before any planning',
+          'The tool/environment result that the agent reads before the next Thought',
+          'The final user-facing paragraph with no intermediate tools',
+          'A gradient update applied to the policy weights'
+        ],
+        answerIndex: 1,
+        explanation: 'Observation is environmental feedback after an Action — the bridge that lets the next Thought adapt.',
+        concept: 'ReAct Pattern'
+      },
+      {
+        id: 'q3_4',
+        question: 'When is RAG usually preferable to fine-tuning for volatile enterprise facts?',
+        options: [
+          'When you need to change the model’s tokenizer only',
+          'When knowledge changes frequently and you need citable retrieved evidence without retraining weights',
+          'When you must permanently erase the base model’s pretraining data',
+          'When latency budgets forbid any external I/O'
+        ],
+        answerIndex: 1,
+        explanation: 'RAG updates the corpus/index quickly and preserves source citations; fine-tuning better fits style/format and stable skills.',
+        concept: 'RAG vs Fine-Tuning'
       }
     ],
     flashcards: [
@@ -756,29 +834,55 @@ assert all(gates.values()), {"results": report["results"], "gates": gates}
     quizzes: [
       {
         id: 'q4_1',
-        question: 'What problem does PagedAttention in vLLM solve?',
+        question: 'What problem does PagedAttention in vLLM primarily address?',
         options: [
-          'It increases GPU clock speeds',
-          'It reduces KV-cache allocation waste by managing fixed-size physical blocks dynamically, like OS virtual memory',
-          'It compiles Python into C++',
-          'It automatically translates prompts into Spanish'
+          'Increasing GPU SM clock rates via driver hooks',
+          'Reducing KV-cache allocation waste by paging fixed-size physical blocks on demand',
+          'Compiling Python request handlers into CUDA graphs automatically',
+          'Translating prompts into a second language before decode'
         ],
         answerIndex: 1,
-        explanation: 'PagedAttention allocates KV cache in fixed-size blocks on demand, reducing allocation waste and often enabling higher concurrency. It does not guarantee zero internal fragmentation.',
+        explanation: 'PagedAttention allocates KV memory in pages like virtual memory. It reduces waste versus naive max-length reservations but does not imply zero fragmentation.',
         concept: 'vLLM PagedAttention'
       },
       {
         id: 'q4_2',
-        question: 'In a Dual-LLM security topology, what is the responsibility of the Tool-Output Sanitizer firewall?',
+        question: 'In a Dual-LLM security topology, what should the Tool-Output path do with untrusted external text?',
         options: [
-          'To format text into Markdown',
-          'To ingest untrusted external data in a quarantined context and strip away malicious imperative instructions before passing safe text to the primary agent',
-          'To manage database passwords',
-          'To speed up GPU matrix multiplication'
+          'Forward it verbatim into the privileged agent’s system prompt',
+          'Process it in a constrained/quarantined path and only return minimized, typed safe content to the privileged agent',
+          'Store it permanently as fine-tuning labels',
+          'Use it to raise GPU memory clocks during decode'
         ],
         answerIndex: 1,
-        explanation: 'The Sanitizer firewall isolates untrusted external inputs, stripping prompt injection vectors to protect the privileged agent.',
+        explanation: 'Untrusted content must not directly control privileged tools. Quarantine, minimize, and validate before the primary agent acts.',
         concept: 'Indirect Prompt Injection Defense'
+      },
+      {
+        id: 'q4_3',
+        question: 'Why can smaller PagedAttention block sizes reduce unused capacity at sequence tails?',
+        options: [
+          'Because Softmax becomes linear in sequence length',
+          'Because the last partially filled page wastes at most (block_size − 1) slots per sequence',
+          'Because smaller blocks disable continuous batching',
+          'Because KV cache moves from GPU to CPU automatically'
+        ],
+        answerIndex: 1,
+        explanation: 'Internal fragmentation is bounded by the remainder inside the final page. Smaller pages can cut that waste but may raise bookkeeping overhead.',
+        concept: 'Block Size Tradeoffs'
+      },
+      {
+        id: 'q4_4',
+        question: 'Which control belongs in a production inference API boundary?',
+        options: [
+          'Disabling authentication to reduce TTFT',
+          'Authentication, request bounds, timeouts, concurrency limits, and rate limiting with measurable budgets',
+          'Logging raw API keys in response headers for debugging',
+          'Unbounded max_tokens with no server-side cap'
+        ],
+        answerIndex: 1,
+        explanation: 'Serving security and capacity controls are part of the product, not optional polish — the module-4 lab exercises these on a CPU path.',
+        concept: 'Secure Serving'
       }
     ],
     flashcards: [
@@ -960,27 +1064,53 @@ assert all(results.values())
         id: 'q5_1',
         question: 'What is Evaluation-Driven Development (EDD) in AI engineering?',
         options: [
-          'Checking agent outputs manually in Excel',
-          'Automating quantitative test metrics (faithfulness, relevancy, security) in CI/CD pipelines to prevent regressions',
-          'Asking users to rate outputs on Twitter',
-          'Testing code only after 1 year in production'
+          'Manual spot-checks of a few chat transcripts before each release',
+          'Automating quantitative quality/security/latency gates inside CI/CD so regressions block promotion',
+          'Publishing model cards without executable tests',
+          'Deferring all evaluation until a year of production traffic accumulates'
         ],
         answerIndex: 1,
-        explanation: 'EDD integrates quantitative evaluation metric test suites into continuous integration pipelines to catch hallucination or quality regressions before release.',
+        explanation: 'EDD treats evaluation suites as release gates, not after-the-fact dashboards.',
         concept: 'Evaluation-Driven Development'
       },
       {
         id: 'q5_2',
-        question: 'Which framework is specifically designed for reference-less evaluation of Retrieval-Augmented Generation (RAG) pipelines?',
+        question: 'Which library is specifically oriented toward reference-less evaluation of RAG pipelines?',
         options: [
           'Ragas',
-          'TensorFlow',
-          'Kubernetes',
-          'Nginx'
+          'scikit-learn’s LogisticRegression',
+          'Kubernetes HorizontalPodAutoscaler',
+          'Nginx rate-limit modules'
         ],
         answerIndex: 0,
-        explanation: 'Ragas specializes in RAG pipeline metrics including Context Precision, Context Recall, and Answer Relevancy.',
+        explanation: 'Ragas focuses on RAG-oriented metrics such as context precision/recall and answer relevancy.',
         concept: 'RAG Evaluation Tools'
+      },
+      {
+        id: 'q5_3',
+        question: 'Why should model artifacts be immutable and checksum-verified before promotion?',
+        options: [
+          'So GPUs can skip CUDA graph capture',
+          'So canary/production rollouts and rollbacks refer to the exact same bytes that were evaluated',
+          'So OpenTelemetry exporters can compress traces losslessly',
+          'So prompt templates no longer need version control'
+        ],
+        answerIndex: 1,
+        explanation: 'Immutable digests prevent “same tag, different weights” drift between evaluation and serving.',
+        concept: 'Release Integrity'
+      },
+      {
+        id: 'q5_4',
+        question: 'What should a tested rollback restore?',
+        options: [
+          'Only the CI badge color on the README',
+          'The previously known-good production model version and related serving pointers, with an audit event',
+          'A random candidate from the last week’s experiments',
+          'Local developer .env files from laptops'
+        ],
+        answerIndex: 1,
+        explanation: 'Rollback is a control-plane action: restore the last good version and record who/what/when.',
+        concept: 'Rollback'
       }
     ],
     flashcards: [
