@@ -108,7 +108,7 @@ CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "3000"]
     lab: {
       id: 'lab1',
       title: 'Containerized Async Streaming API',
-      environment: 'WebContainers',
+      environment: 'Local Python',
       workspacePath: 'labs/module-1-foundations',
       instructions: [
         'Implement the real FastAPI service in `app/main.py` with `/health` and `/api/v1/generate/stream` endpoints.',
@@ -212,8 +212,8 @@ async def stream_generate(req: PromptRequest):
     prerequisites: ['Transformer Attention Mechanism $O(N^2)$', 'Matrix Multiplication', 'PyTorch Basics'],
     competencyContract: {
       explain: ['Transformer attention, KV-cache behavior, and FlashAttention/MLA tradeoffs', 'SFT versus DPO versus GRPO and MoE routing', 'LoRA/QLoRA, quantization, and diffusion fundamentals'],
-      buildAndDebug: ['Load and fine-tune a small open model with QLoRA', 'Evaluate the base model versus the adapted model', 'Quantize or export for local serving and benchmark memory and latency'],
-      evidenceRequired: ['Training configuration and dataset card', 'Adapter or checkpoint reference and evaluation comparison', 'Reproducible benchmark report']
+      buildAndDebug: ['Compute attention / KV-cache / LoRA / quantization / GRPO / MoE numerics in NumPy', 'Validate formulas against the module pytest suite', 'Generate a machine-readable evidence artifact from the lab'],
+      evidenceRequired: ['Passing pytest results for architecture mechanics', 'Evidence JSON with checksum', 'Notes comparing lab numerics to production QLoRA/vLLM claims']
     },
     objectives: [
       'Deconstruct FlashAttention-3 GPU memory tiling and Hopper Tensor Memory Accelerator (TMA) pipelining',
@@ -317,7 +317,8 @@ def compute_grpo_advantages(rewards: torch.Tensor, group_size: int = 8) -> torch
     rewards shape: (batch_size, group_size)
     """
     mean_r = rewards.mean(dim=-1, keepdim=True)
-    std_r = rewards.std(dim=-1, keepdim=True) + 1e-8
+    # Match lab NumPy population std (unbiased=False) so printed advantages align.
+    std_r = rewards.std(dim=-1, keepdim=True, unbiased=False) + 1e-8
     
     # Normalized advantage relative to group performance
     advantages = (rewards - mean_r) / std_r
@@ -327,7 +328,7 @@ def compute_grpo_advantages(rewards: torch.Tensor, group_size: int = 8) -> torch
 group_rewards = torch.tensor([[1.0, 0.0, 0.0, 1.0]])  # Math verifier results
 adv = compute_grpo_advantages(group_rewards)
 print("GRPO Advantages:", adv)
-# Output: tensor([[ 0.8660, -0.8660, -0.8660,  0.8660]])
+# Output: tensor([[ 1.0000, -1.0000, -1.0000,  1.0000]])
 `,
         explanation: 'GRPO normalizes rewards strictly within a generated output group per prompt, eliminating the Critic model requirement.'
       }
@@ -487,8 +488,9 @@ class SQLQueryResult(BaseModel):
     confidence_score: float = Field(..., ge=0.0, le=1.0)
 
 # Initialize Agent with enforced Pydantic output schema
+# Swap the model id for your provider (OpenAI-compatible xAI endpoint works with Grok).
 agent = Agent(
-    'google-gla:gemini-2.5-flash',
+    'grok-4.6',
     output_type=SQLQueryResult,
     system_prompt="You are a senior database architect. Always output valid SQL."
 )
@@ -630,8 +632,8 @@ if proposal.status.value == "awaiting_approval":
     prerequisites: ['Module 1-3', 'Distributed Systems basics', 'Virtual Memory concepts'],
     competencyContract: {
       explain: ['TTFT, ITL, throughput, continuous batching, and PagedAttention', 'Prefill/decode separation, caching, and chat/browser/SQL agent topologies', 'Indirect prompt injection and privilege boundaries'],
-      buildAndDebug: ['Run an inference endpoint and generate concurrent load', 'Measure real latency and throughput', 'Implement security boundaries and adversarial tests'],
-      evidenceRequired: ['Architecture decision record and load-test script', 'Raw benchmark output and bottleneck analysis', 'Security test results']
+      buildAndDebug: ['Run the authenticated FastAPI inference endpoint under concurrent load', 'Measure p50/p95/p99 latency and throughput with regression budgets', 'Exercise auth, rate limits, timeouts, and security headers'],
+      evidenceRequired: ['Passing serving/security tests', 'Measured benchmark JSON (CPU engine; not GPU/vLLM)', 'Evidence artifact and threat-model notes']
     },
     objectives: [
       'Deconstruct vLLM PagedAttention virtual memory block allocation to eliminate KV cache fragmentation',
@@ -807,8 +809,8 @@ assert all(gates.values()), {"results": report["results"], "gates": gates}
     prerequisites: ['Module 1-4', 'Docker', 'CI/CD concepts'],
     competencyContract: {
       explain: ['CI/CD evaluation gates and Kubernetes/serverless tradeoffs', 'Autoscaling signals, rollout/rollback, and observability', 'Model/data drift, cost controls, and SLOs'],
-      buildAndDebug: ['Build an evaluation suite and CI gate', 'Generate credential-free Azure AI Foundry and Databricks deployment plans', 'Configure custom metrics and exercise a state-restoring rollback'],
-      evidenceRequired: ['Release workflow and immutable artifact record', 'Telemetry evidence and operational runbook', 'Cost, gate, audit, and rollback report']
+      buildAndDebug: ['Run local faithfulness/relevancy/safety/latency gates without cloud credentials', 'Promote candidate → canary → production with an append-only audit trail', 'Exercise telemetry alerts and a state-restoring rollback; export provider deployment plans'],
+      evidenceRequired: ['Passing operations tests', 'Evidence JSON with gates, telemetry, and provider plans', 'Runbook confirming no false cloud-deployment claims']
     },
     objectives: [
       'Implement Evaluation-Driven Development (EDD) pipelines using DeepEval and Promptfoo',
@@ -828,7 +830,7 @@ assert all(gates.values()), {"results": report["results"], "gates": gates}
       },
       {
         title: '5.2 LLM-as-a-Judge & G-Eval Mechanics',
-        content: `Utilizing frontier models (e.g. Gemini 3.6 Flash / Pro) as deterministic judges using explicit rubrics.
+        content: `Utilizing frontier models (e.g. Grok or other strong chat models) as judges with explicit rubrics.
 
 **G-Eval Steps:**
 1. Input evaluation criteria and rubric weights.
@@ -867,7 +869,7 @@ def test_agent_faithfulness():
     )
     
     # 3. Instantiate Metric with strict 0.8 threshold
-    faithfulness_metric = FaithfulnessMetric(threshold=0.8, model="gemini-3.6-flash")
+    faithfulness_metric = FaithfulnessMetric(threshold=0.8, model="grok-4.6")
     
     # 4. Assert Test Pass/Fail in CI/CD Pipeline
     assert_test(test_case, [faithfulness_metric])
@@ -904,7 +906,7 @@ jobs:
           
       - name: Run DeepEval Metric Regression Suite
         env:
-          GEMINI_API_KEY: \${{ secrets.GEMINI_API_KEY }}
+          XAI_API_KEY: \${{ secrets.XAI_API_KEY }}
         run: |
           pytest tests/test_agent_eval.py -v
 `,
@@ -1037,7 +1039,7 @@ export const systemBlueprints: ArchitectureBlueprint[] = [
     nodes: [
       { id: 'n_client', label: 'Client Application', type: 'client', description: 'User dashboard submitting analytic queries.', latencyAvgMs: 0 },
       { id: 'n_minimizer', label: 'Schema RAG & Minimizer', type: 'security', description: 'Retrieves relevant table DDL schemas and filters input parameters.', latencyAvgMs: 45 },
-      { id: 'n_agent', label: 'PydanticAI Agent (Gemini 3.6 Flash)', type: 'llm', description: 'Generates SQL and validates output strictly against SQLQueryResult Pydantic schema.', latencyAvgMs: 420 },
+      { id: 'n_agent', label: 'PydanticAI Agent (Grok)', type: 'llm', description: 'Generates SQL and validates output strictly against SQLQueryResult Pydantic schema.', latencyAvgMs: 420 },
       { id: 'n_db_ro', label: 'PostgreSQL Read-Only Replica', type: 'database', description: 'Sandboxed read-only database replica executing generated SQL.', latencyAvgMs: 65 }
     ],
     edges: [

@@ -1,8 +1,13 @@
 import React, { useState } from 'react';
 import { modulesData } from '../data/curriculumData';
+import { MarkdownContent } from './MarkdownContent';
 import { CheckSquare, CheckCircle2 } from 'lucide-react';
 
-export const QuizView: React.FC = () => {
+interface QuizViewProps {
+  onRecordProgramScore: (scorePercent: number) => void;
+}
+
+export const QuizView: React.FC<QuizViewProps> = ({ onRecordProgramScore }) => {
   const allQuizzes = modulesData.flatMap(m => m.quizzes);
   const [userAnswers, setUserAnswers] = useState<Record<string, number>>({});
   const [isSubmitted, setIsSubmitted] = useState<boolean>(false);
@@ -13,6 +18,11 @@ export const QuizView: React.FC = () => {
   ).length;
 
   const scorePercent = Math.round((correctCount / totalQuestions) * 100);
+
+  const handleSubmit = () => {
+    setIsSubmitted(true);
+    onRecordProgramScore(scorePercent);
+  };
 
   return (
     <div className="space-y-8">
@@ -26,7 +36,7 @@ export const QuizView: React.FC = () => {
           Comprehensive Program Knowledge Checks
         </h1>
         <p className="text-sm text-slate-500 mt-1">
-          Validate your mastery across all 5 curriculum modules.
+          Validate your mastery across all {modulesData.length} curriculum modules. A score of 60%+ is required for the certificate gate.
         </p>
 
         {isSubmitted && (
@@ -69,7 +79,7 @@ export const QuizView: React.FC = () => {
                   return (
                     <button
                       key={optIdx}
-                      onClick={() => setUserAnswers(prev => ({ ...prev, [q.id]: optIdx }))}
+                      onClick={() => !isSubmitted && setUserAnswers(prev => ({ ...prev, [q.id]: optIdx }))}
                       className={`w-full text-left p-3.5 rounded-xl text-xs font-medium transition-all border ${
                         isSelected
                           ? 'bg-indigo-600 text-white border-indigo-600 font-bold shadow-md shadow-indigo-200'
@@ -87,7 +97,7 @@ export const QuizView: React.FC = () => {
                   <strong className="block font-bold mb-1">
                     {isCorrect ? '✓ Correct Answer' : '✗ Incorrect'}
                   </strong>
-                  <p>{q.explanation}</p>
+                  <MarkdownContent content={q.explanation} tone="inherit" className="text-inherit" />
                 </div>
               )}
             </div>
@@ -98,7 +108,7 @@ export const QuizView: React.FC = () => {
       {!isSubmitted && (
         <div className="flex justify-end pt-4">
           <button
-            onClick={() => setIsSubmitted(true)}
+            onClick={handleSubmit}
             className="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-indigo-200 transition-all flex items-center gap-2"
           >
             <CheckCircle2 className="w-4 h-4" />

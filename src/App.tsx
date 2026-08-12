@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { modulesData } from './data/curriculumData';
 import { UserProgress } from './types';
 import { Navbar } from './components/Navbar';
@@ -17,34 +17,38 @@ import { AiMentorModal } from './components/AiMentorModal';
 import { CertificateModal } from './components/CertificateModal';
 import { Sliders } from 'lucide-react';
 
+const defaultProgress = (): UserProgress => ({
+  completedModules: [],
+  labCompletions: {},
+  quizScores: {},
+  learnedFlashcards: [],
+  codeRunHistory: 0,
+  certificateGranted: false,
+  userLevel: 'Junior ML Dev'
+});
+
 export default function App() {
   const [activeView, setActiveView] = useState<string>('overview');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isAiMentorOpen, setIsAiMentorOpen] = useState<boolean>(false);
   const [isCertificateOpen, setIsCertificateOpen] = useState<boolean>(false);
 
-  // User Progress Persistence
   const [progress, setProgress] = useState<UserProgress>(() => {
     const saved = localStorage.getItem('ai_academy_progress');
     if (saved) {
-      try { return JSON.parse(saved); } catch {}
+      try {
+        return { ...defaultProgress(), ...JSON.parse(saved) };
+      } catch {
+        /* ignore corrupt localStorage */
+      }
     }
-    return {
-      completedModules: [1],
-      labCompletions: {},
-      quizScores: {},
-      learnedFlashcards: ['fc1_1', 'fc2_1', 'fc3_1', 'fc4_1'],
-      codeRunHistory: 5,
-      certificateGranted: false,
-      userLevel: 'AI Engineer'
-    };
+    return defaultProgress();
   });
 
   useEffect(() => {
     localStorage.setItem('ai_academy_progress', JSON.stringify(progress));
   }, [progress]);
 
-  // Update user level based on completed modules
   useEffect(() => {
     const count = progress.completedModules.length;
     let level: UserProgress['userLevel'] = 'Junior ML Dev';
@@ -55,7 +59,7 @@ export default function App() {
     if (level !== progress.userLevel) {
       setProgress(prev => ({ ...prev, userLevel: level }));
     }
-  }, [progress.completedModules]);
+  }, [progress.completedModules, progress.userLevel]);
 
   const toggleModuleComplete = (id: number) => {
     setProgress(prev => {
@@ -63,13 +67,41 @@ export default function App() {
       const nextCompleted = exists
         ? prev.completedModules.filter(mId => mId !== id)
         : [...prev.completedModules, id];
-      return { ...prev, completedModules: nextCompleted };
+      return { ...prev, completedModules: nextCompleted, certificateGranted: false };
     });
   };
 
   const handleCodeRunCount = () => {
     setProgress(prev => ({ ...prev, codeRunHistory: prev.codeRunHistory + 1 }));
   };
+
+  const recordQuizScore = useCallback((moduleId: number, scorePercent: number) => {
+    setProgress(prev => ({
+      ...prev,
+      quizScores: { ...prev.quizScores, [String(moduleId)]: scorePercent },
+      certificateGranted: false
+    }));
+  }, []);
+
+  const recordProgramQuizScore = useCallback((scorePercent: number) => {
+    setProgress(prev => ({
+      ...prev,
+      quizScores: { ...prev.quizScores, program: scorePercent },
+      certificateGranted: false
+    }));
+  }, []);
+
+  const confirmLabEvidence = useCallback((labId: string) => {
+    setProgress(prev => ({
+      ...prev,
+      labCompletions: { ...prev.labCompletions, [labId]: true },
+      certificateGranted: false
+    }));
+  }, []);
+
+  const grantCertificate = useCallback(() => {
+    setProgress(prev => ({ ...prev, certificateGranted: true }));
+  }, []);
 
   const toggleMasteredFlashcard = (id: string) => {
     setProgress(prev => {
@@ -81,7 +113,6 @@ export default function App() {
     });
   };
 
-  // Determine active view content
   const currentModuleId = activeView.startsWith('module-')
     ? parseInt(activeView.replace('module-', ''), 10)
     : null;
@@ -92,7 +123,6 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans flex flex-col">
-      {/* Main Navbar */}
       <Navbar
         progress={progress}
         onOpenAiMentor={() => setIsAiMentorOpen(true)}
@@ -101,16 +131,13 @@ export default function App() {
         setSearchQuery={setSearchQuery}
       />
 
-      {/* Body Area */}
       <div className="flex-1 flex flex-col md:flex-row">
-        {/* Navigation Sidebar */}
         <Sidebar
           activeView={activeView}
           setActiveView={setActiveView}
           completedModules={progress.completedModules}
         />
 
-        {/* Main Content View Mount */}
         <main className="flex-1 p-4 md:p-8 max-w-7xl mx-auto w-full">
           {activeView === 'overview' && (
             <OverviewView
@@ -126,8 +153,12 @@ export default function App() {
               progress={progress}
               onToggleComplete={toggleModuleComplete}
               onCodeRun={handleCodeRunCount}
+              onRecordQuizScore={recordQuizScore}
+              onConfirmLabEvidence={confirmLabEvidence}
               onNavigateNext={
-                currentModule.id < 5 ? () => setActiveView(`module-${currentModule.id + 1}`) : undefined
+                currentModule.id < modulesData.length
+                  ? () => setActiveView(`module-${currentModule.id + 1}`)
+                  : undefined
               }
               onNavigatePrev={
                 currentModule.id > 1 ? () => setActiveView(`module-${currentModule.id - 1}`) : undefined
@@ -167,22 +198,21 @@ export default function App() {
             />
           )}
 
-          {activeView === 'quizzes' && <QuizView />}
+          {activeView === 'quizzes' && <QuizView onRecordProgramScore={recordProgramQuizScore} />}
         </main>
       </div>
 
-      {/* AI Mentor Dialog Modal */}
       <AiMentorModal
         isOpen={isAiMentorOpen}
         onClose={() => setIsAiMentorOpen(false)}
         currentContext={currentModule ? currentModule.title : 'General AI Engineering'}
       />
 
-      {/* Certificate Modal */}
       <CertificateModal
         isOpen={isCertificateOpen}
         onClose={() => setIsCertificateOpen(false)}
-        userLevel={progress.userLevel}
+        progress={progress}
+        onGrantCertificate={grantCertificate}
       />
     </div>
   );

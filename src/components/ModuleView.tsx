@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ModuleData, UserProgress } from '../types';
 import { CodeBlock } from './CodeBlock';
+import { MarkdownContent } from './MarkdownContent';
 import { BookOpen, Code2, FlaskConical, CheckSquare, CheckCircle2, Play, ArrowRight, ArrowLeft, MessageSquareText, Wrench, FolderCheck } from 'lucide-react';
 
 interface ModuleViewProps {
@@ -8,6 +9,8 @@ interface ModuleViewProps {
   progress: UserProgress;
   onToggleComplete: (id: number) => void;
   onCodeRun: () => void;
+  onRecordQuizScore: (moduleId: number, scorePercent: number) => void;
+  onConfirmLabEvidence: (labId: string) => void;
   onNavigateNext?: () => void;
   onNavigatePrev?: () => void;
 }
@@ -17,6 +20,8 @@ export const ModuleView: React.FC<ModuleViewProps> = ({
   progress,
   onToggleComplete,
   onCodeRun,
+  onRecordQuizScore,
+  onConfirmLabEvidence,
   onNavigateNext,
   onNavigatePrev
 }) => {
@@ -26,13 +31,23 @@ export const ModuleView: React.FC<ModuleViewProps> = ({
   const [labOutput, setLabOutput] = useState<string | null>(null);
   const [isLabRunning, setIsLabRunning] = useState<boolean>(false);
 
-  const isCompleted = progress.completedModules.length ? progress.completedModules.includes(module.id) : false;
+  const isCompleted = progress.completedModules.includes(module.id);
+  const labConfirmed = Boolean(progress.labCompletions[module.lab.id]);
 
   const handleSelectQuizOption = (quizId: string, optionIdx: number) => {
     setSelectedAnswers(prev => ({ ...prev, [quizId]: optionIdx }));
   };
 
-  const handleRunLab = async () => {
+  const handleSubmitQuiz = () => {
+    setShowQuizResults(true);
+    const answered = module.quizzes.filter(q => selectedAnswers[q.id] !== undefined);
+    if (answered.length === 0) return;
+    const correct = answered.filter(q => selectedAnswers[q.id] === q.answerIndex).length;
+    const scorePercent = Math.round((correct / module.quizzes.length) * 100);
+    onRecordQuizScore(module.id, scorePercent);
+  };
+
+  const handlePreviewLab = async () => {
     setIsLabRunning(true);
     setLabOutput(null);
     try {
@@ -46,10 +61,12 @@ export const ModuleView: React.FC<ModuleViewProps> = ({
         })
       });
       const data = await res.json();
-      setLabOutput(data.output);
+      setLabOutput(
+        `${data.output}\n\n[NOTE] This is a canned preview of expected logs — it does not run pytest or your lab code. Use the validation commands below for real evidence.`
+      );
       onCodeRun();
     } catch {
-      setLabOutput('[ERROR] Lab execution failed.');
+      setLabOutput('[ERROR] Preview simulation failed. Check that the dev server is running.');
     } finally {
       setIsLabRunning(false);
     }
@@ -134,7 +151,7 @@ export const ModuleView: React.FC<ModuleViewProps> = ({
         <div className="mb-5">
           <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-indigo-300">Evidence-based readiness</span>
           <h2 className="text-xl font-extrabold mt-1">Competency Contract</h2>
-          <p className="text-xs text-slate-400 mt-1">Completion is informational in Phase 1. These are the capabilities and artifacts required for genuine mastery.</p>
+          <p className="text-xs text-slate-400 mt-1">These capabilities and artifacts define genuine mastery for this module. Mark-complete is self-attested; certificates also require confirmed lab evidence and a passing quiz score.</p>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {[
@@ -161,14 +178,12 @@ export const ModuleView: React.FC<ModuleViewProps> = ({
                 {sec.title}
               </h2>
 
-              <div className="prose prose-slate max-w-none text-xs md:text-sm text-slate-700 leading-relaxed space-y-3 whitespace-pre-line">
-                {sec.content}
-              </div>
+              <MarkdownContent content={sec.content} tone="light" />
 
               {sec.keyFormula && (
-                <div className="p-4 bg-slate-950 text-indigo-300 rounded-2xl font-mono text-xs border border-slate-800">
-                  <span className="text-slate-400 font-sans font-bold text-[10px] uppercase block mb-1">Mathematical Formula</span>
-                  <div>{sec.keyFormula}</div>
+                <div className="p-4 bg-slate-950 text-indigo-300 rounded-2xl border border-slate-800 overflow-x-auto">
+                  <span className="text-slate-400 font-sans font-bold text-[10px] uppercase block mb-2">Mathematical Formula</span>
+                  <MarkdownContent content={sec.keyFormula} tone="dark" asDisplayMath className="[&_.katex-display]:m-0" />
                 </div>
               )}
             </div>
@@ -198,14 +213,32 @@ export const ModuleView: React.FC<ModuleViewProps> = ({
               <h2 className="text-2xl font-extrabold text-slate-900 mt-2">🧪 {module.lab.title}</h2>
             </div>
 
-            <button
-              onClick={handleRunLab}
-              disabled={isLabRunning}
-              className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-2 self-start"
-            >
-              <Play className="w-4 h-4 fill-current" />
-              <span>{isLabRunning ? 'Executing Lab...' : 'Execute Lab Sandbox'}</span>
-            </button>
+            <div className="flex flex-wrap gap-2 self-start">
+              <button
+                onClick={handlePreviewLab}
+                disabled={isLabRunning}
+                className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-2"
+              >
+                <Play className="w-4 h-4 fill-current" />
+                <span>{isLabRunning ? 'Previewing...' : 'Preview Expected Logs'}</span>
+              </button>
+              <button
+                onClick={() => onConfirmLabEvidence(module.lab.id)}
+                className={`px-5 py-2.5 font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-2 ${
+                  labConfirmed
+                    ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                    : 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                }`}
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                <span>{labConfirmed ? 'Lab Evidence Confirmed' : 'Confirm Lab Evidence'}</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-950">
+            <strong className="font-bold">Honest execution note:</strong> Preview Expected Logs shows canned teaching output only.
+            Real mastery requires running the validation commands in your local lab venv (pytest / evidence scripts), then confirming below.
           </div>
 
           <div className="space-y-3">
@@ -261,7 +294,7 @@ export const ModuleView: React.FC<ModuleViewProps> = ({
             </div>
 
             <button
-              onClick={() => setShowQuizResults(true)}
+              onClick={handleSubmitQuiz}
               className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl shadow-md shadow-indigo-200 transition-all"
             >
               Submit & Check Answers
@@ -309,7 +342,7 @@ export const ModuleView: React.FC<ModuleViewProps> = ({
                       <strong className="block font-bold mb-1">
                         {isCorrect ? '✓ Correct Answer' : '✗ Incorrect'}
                       </strong>
-                      <p>{q.explanation}</p>
+                      <MarkdownContent content={q.explanation} tone="inherit" className="text-inherit" />
                     </div>
                   )}
                 </div>

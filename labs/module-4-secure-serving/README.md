@@ -26,8 +26,8 @@ python -m app.evidence --output artifacts/evidence.json
 To exercise the endpoint manually:
 
 ```bash
-ACADEMY_API_KEY=change-me uvicorn app.service:app --host 127.0.0.1 --port 8000
-curl -s http://127.0.0.1:8000/v1/generate -H 'content-type: application/json' -H 'x-api-key: change-me' -d '{"prompt":"Assess account risk","max_tokens":24}'
+ACADEMY_API_KEY=academy-local-key uvicorn app.service:app --host 127.0.0.1 --port 8000
+curl -s http://127.0.0.1:8000/v1/generate -H 'content-type: application/json' -H 'x-api-key: academy-local-key' -d '{"prompt":"Assess account risk","max_tokens":24}'
 ```
 
 ## Measurement contract

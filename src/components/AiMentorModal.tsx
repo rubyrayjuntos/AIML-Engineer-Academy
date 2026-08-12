@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ChatMessage } from '../types';
+import { MarkdownContent } from './MarkdownContent';
 import { Sparkles, X, Send, Bot, User } from 'lucide-react';
 
 interface AiMentorModalProps {
@@ -13,7 +14,7 @@ export const AiMentorModal: React.FC<AiMentorModalProps> = ({ isOpen, onClose, c
     {
       id: 'm1',
       role: 'assistant',
-      content: `Hello! I am your AI Engineer Mentor powered by Gemini 3.6 Flash. Ask me any technical question about FlashAttention-3, DeepSeek MLA, GRPO alignment, Model Context Protocol (MCP), vLLM PagedAttention, or Indirect Prompt Injection defenses!`,
+      content: `Hello! I am your AI Engineer Mentor powered by xAI Grok. Ask me any technical question about FlashAttention-3, DeepSeek MLA, GRPO alignment, Model Context Protocol (MCP), vLLM PagedAttention, or Indirect Prompt Injection defenses!`,
       timestamp: 'Just now'
     }
   ]);
@@ -48,6 +49,21 @@ export const AiMentorModal: React.FC<AiMentorModalProps> = ({ isOpen, onClose, c
           conversationHistory: messages.slice(-4)
         })
       });
+
+      if (res.status === 429) {
+        const limited = await res.json().catch(() => ({}));
+        setMessages(prev => [
+          ...prev,
+          {
+            id: (Date.now() + 1).toString(),
+            role: 'assistant',
+            content: `Rate limit reached. Please wait ${limited.retryAfterSec || 'a minute'} and try again.`,
+            timestamp: 'Just now',
+            source: 'rate_limit'
+          }
+        ]);
+        return;
+      }
 
       const data = await res.json();
       const assistantMsg: ChatMessage = {
@@ -92,7 +108,7 @@ export const AiMentorModal: React.FC<AiMentorModalProps> = ({ isOpen, onClose, c
             </div>
             <div>
               <h3 className="text-base font-extrabold text-white flex items-center gap-2">
-                Gemini AI Code & Systems Mentor
+                Grok AI Code & Systems Mentor
               </h3>
               <p className="text-xs text-slate-400">
                 Context: {currentContext || 'General AI Engineering'}
@@ -128,7 +144,13 @@ export const AiMentorModal: React.FC<AiMentorModalProps> = ({ isOpen, onClose, c
                     : 'bg-slate-900 text-slate-200 border border-slate-800 rounded-tl-none'
                 }`}
               >
-                <div className="whitespace-pre-line leading-relaxed">{msg.content}</div>
+                <div className="leading-relaxed">
+                  {msg.role === 'assistant' ? (
+                    <MarkdownContent content={msg.content} tone="dark" />
+                  ) : (
+                    <div className="whitespace-pre-line">{msg.content}</div>
+                  )}
+                </div>
                 {msg.source && (
                   <div className="text-[10px] font-mono text-slate-400 pt-1 border-t border-slate-800">
                     Source Engine: {msg.source}
@@ -147,7 +169,7 @@ export const AiMentorModal: React.FC<AiMentorModalProps> = ({ isOpen, onClose, c
           {isLoading && (
             <div className="flex items-center gap-3 text-xs text-indigo-400 font-mono">
               <div className="w-4 h-4 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin"></div>
-              <span>Gemini 3.6 Flash reasoning & generating code response...</span>
+              <span>Grok reasoning & generating code response...</span>
             </div>
           )}
         </div>
