@@ -2,12 +2,14 @@ import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
-import { GoogleGenAI } from '@google/genai';
 
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+const XAI_API_URL = 'https://api.x.ai/v1/chat/completions';
+const XAI_MODEL = process.env.XAI_MODEL || 'grok-4.6';
 
 async function startServer() {
   const app = express();
@@ -19,12 +21,13 @@ async function startServer() {
   app.get('/api/health', (req, res) => {
     res.json({
       status: 'ok',
-      hasGeminiKey: Boolean(process.env.GEMINI_API_KEY),
+      hasXaiKey: Boolean(process.env.XAI_API_KEY),
+      model: XAI_MODEL,
       timestamp: new Date().toISOString()
     });
   });
 
-  // Gemini AI Tutor Endpoint
+  // xAI Grok AI Tutor Endpoint
   app.post('/api/ai/chat', async (req, res) => {
     try {
       const { prompt, context, conversationHistory } = req.body;
@@ -33,7 +36,7 @@ async function startServer() {
         return res.status(400).json({ error: 'Prompt is required' });
       }
 
-      const apiKey = process.env.GEMINI_API_KEY;
+      const apiKey = process.env.XAI_API_KEY;
 
       if (!apiKey) {
         // High quality fallback responses for learning concepts when key is absent
@@ -43,15 +46,6 @@ async function startServer() {
           source: 'simulated_mentor'
         });
       }
-
-      const ai = new GoogleGenAI({
-        apiKey,
-        httpOptions: {
-          headers: {
-            'User-Agent': 'aistudio-build'
-          }
-        }
-      });
 
       const systemInstruction = `You are the Principal AI Engineer Mentor for the "AI/ML Engineer Command Center". 
 Your goal is to provide authoritative, mathematically precise, code-backed, and architecture-focused explanations for engineering students.
@@ -68,29 +62,52 @@ You specialize in:
 Keep answers structured with Markdown headings, code blocks (Python/TypeScript/Bash), clear tradeoffs, and bullet points.
 Context module: ${context || 'General AI Engineering'}`;
 
-      const historyFormatted = (conversationHistory || []).map((msg: any) => `${msg.role.toUpperCase()}: ${msg.content}`).join('\n\n');
+      const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
+        { role: 'system', content: systemInstruction }
+      ];
 
-      const fullPrompt = `${historyFormatted ? `Previous Conversation:\n${historyFormatted}\n\n` : ''}User Question: ${prompt}`;
-
-      const response = await ai.models.generateContent({
-        model: 'gemini-3.6-flash',
-        contents: fullPrompt,
-        config: {
-          systemInstruction,
-          temperature: 0.7
+      for (const msg of conversationHistory || []) {
+        const role = msg.role === 'assistant' ? 'assistant' : 'user';
+        if (msg.content) {
+          messages.push({ role, content: String(msg.content) });
         }
+      }
+
+      messages.push({ role: 'user', content: prompt });
+
+      const xaiResponse = await fetch(XAI_API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model: XAI_MODEL,
+          messages,
+          temperature: 0.7
+        })
       });
+
+      if (!xaiResponse.ok) {
+        const errorBody = await xaiResponse.text();
+        throw new Error(`xAI API ${xaiResponse.status}: ${errorBody.slice(0, 300)}`);
+      }
+
+      const data = (await xaiResponse.json()) as {
+        choices?: Array<{ message?: { content?: string } }>;
+      };
+      const reply = data.choices?.[0]?.message?.content?.trim();
 
       return res.json({
-        reply: response.text || 'No output generated from Gemini.',
-        source: 'gemini_3_6_flash'
+        reply: reply || 'No output generated from Grok.',
+        source: XAI_MODEL
       });
     } catch (err: any) {
-      console.error('Gemini API Error:', err);
+      console.error('xAI Grok API Error:', err);
       // Fallback response on error so user experience remains flawless
       const fallbackText = generateFallbackAiResponse(req.body.prompt, req.body.context);
       return res.json({
-        reply: `${fallbackText}\n\n*(Note: Powered by Curriculum Knowledge Engine; Gemini API encountered an issue: ${err.message || 'Service temporarily unreachable'})*`,
+        reply: `${fallbackText}\n\n*(Note: Powered by Curriculum Knowledge Engine; xAI Grok API encountered an issue: ${err.message || 'Service temporarily unreachable'})*`,
         source: 'curriculum_engine'
       });
     }

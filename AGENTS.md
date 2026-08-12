@@ -10,7 +10,7 @@ Interactive AI/ML engineering training platform. Two parts live in this repo:
 ### Web app (root)
 - Run in development with `npm run dev` (runs `tsx server.ts`, Express + Vite middleware) and listens on `http://0.0.0.0:3000`. There is no separate Vite port — the Express server serves the SPA.
 - Lint is `npm run lint` (`tsc --noEmit`); build is `npm run build` (Vite + esbuild bundle of the server). The esbuild `import.meta` warning during build is benign — dev mode uses `tsx`, not the bundled `dist/server.cjs`.
-- `GEMINI_API_KEY` is optional. Without it, `/api/ai/chat` returns high-quality canned "curriculum engine" fallback answers, so the AI Mentor and full UI work end-to-end with no secret. Set `GEMINI_API_KEY` (see `.env.example`) only to exercise real Gemini calls. Check `curl -s localhost:3000/api/health` to see `hasGeminiKey`.
+- `XAI_API_KEY` is required for live AI Mentor replies (see `.env.example`). Without it, `/api/ai/chat` returns high-quality canned "curriculum engine" fallback answers, so the UI still works end-to-end. Optional `XAI_MODEL` overrides the default `grok-4.6`. Check `curl -s localhost:3000/api/health` for `hasXaiKey` and `model`.
 
 ### Python labs
 - Each lab is isolated in its own virtualenv at `labs/module-*/.venv` because their dependencies conflict across labs (e.g. `mcp` in module-3 needs a newer `starlette` than `fastapi` in module-4). Do NOT install all lab requirements into one shared environment.

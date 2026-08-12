@@ -13,7 +13,7 @@ export const AiMentorModal: React.FC<AiMentorModalProps> = ({ isOpen, onClose, c
     {
       id: 'm1',
       role: 'assistant',
-      content: `Hello! I am your AI Engineer Mentor powered by Gemini 3.6 Flash. Ask me any technical question about FlashAttention-3, DeepSeek MLA, GRPO alignment, Model Context Protocol (MCP), vLLM PagedAttention, or Indirect Prompt Injection defenses!`,
+      content: `Hello! I am your AI Engineer Mentor powered by xAI Grok. Ask me any technical question about FlashAttention-3, DeepSeek MLA, GRPO alignment, Model Context Protocol (MCP), vLLM PagedAttention, or Indirect Prompt Injection defenses!`,
       timestamp: 'Just now'
     }
   ]);
@@ -92,7 +92,7 @@ export const AiMentorModal: React.FC<AiMentorModalProps> = ({ isOpen, onClose, c
             </div>
             <div>
               <h3 className="text-base font-extrabold text-white flex items-center gap-2">
-                Gemini AI Code & Systems Mentor
+                Grok AI Code & Systems Mentor
               </h3>
               <p className="text-xs text-slate-400">
                 Context: {currentContext || 'General AI Engineering'}
@@ -147,7 +147,7 @@ export const AiMentorModal: React.FC<AiMentorModalProps> = ({ isOpen, onClose, c
           {isLoading && (
             <div className="flex items-center gap-3 text-xs text-indigo-400 font-mono">
               <div className="w-4 h-4 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin"></div>
-              <span>Gemini 3.6 Flash reasoning & generating code response...</span>
+              <span>Grok reasoning & generating code response...</span>
             </div>
           )}
         </div>
