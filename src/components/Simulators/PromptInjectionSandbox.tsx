@@ -69,7 +69,9 @@ export const PromptInjectionSandbox: React.FC = () => {
               className="w-4 h-4 accent-emerald-600 cursor-pointer"
             />
           </div>
-          <p className="text-[11px] text-slate-500 mt-1">Quarantined model filtering adversarial imperative prompt commands.</p>
+          <p className="text-[11px] text-slate-500 mt-1">
+            Teaching stand-in for a quarantined model: transparent keyword heuristics only (not a real LLM sanitizer).
+          </p>
         </div>
       </div>
 

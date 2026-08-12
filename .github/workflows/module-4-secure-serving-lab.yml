@@ -1,22 +1,18 @@
 name: Module 4 Secure Serving Lab
+
 on:
   pull_request:
   push:
     branches: [main]
+
 permissions:
   contents: read
+
 jobs:
   validate-module-4-lab:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4.2.2
-      - uses: actions/setup-node@v4.4.0
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: npm run lint
-      - run: npm run build
       - uses: actions/setup-python@v5.6.0
         with:
           python-version: "3.11"

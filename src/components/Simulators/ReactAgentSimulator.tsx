@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Bot, Play, RotateCcw, CheckCircle2, ArrowRight } from 'lucide-react';
 
 interface Step {
@@ -8,55 +8,172 @@ interface Step {
   durationMs: number;
 }
 
-export const ReactAgentSimulator: React.FC = () => {
-  const [goalPrompt, setGoalPrompt] = useState<string>("Analyze Q3 enterprise churn and update executive report in database");
-  const [currentStepIndex, setCurrentStepIndex] = useState<number>(0);
-  const [isRunning, setIsRunning] = useState<boolean>(false);
+function buildStepsForGoal(goalPrompt: string): Step[] {
+  const goal = goalPrompt.toLowerCase();
 
-  const steps: Step[] = [
+  if (goal.includes('churn') || goal.includes('report') || goal.includes('database') || goal.includes('sql')) {
+    const wantsWrite = /update|write|persist|insert|modify/.test(goal);
+    return [
+      {
+        type: 'THOUGHT',
+        content: `Interpreting goal: "${goalPrompt}". Need retention metrics from subscriptions data${wantsWrite ? ', then a write action that should hit an approval gate' : ''}.`,
+        durationMs: 140
+      },
+      {
+        type: 'ACTION',
+        content: 'Calling a read-only MCP schema tool before generating SQL.',
+        toolCall: { name: 'mcp.tools.get_table_schema', args: '{"table": "user_subscriptions"}' },
+        durationMs: 85
+      },
+      {
+        type: 'OBSERVATION',
+        content: 'Schema returned: id (INT), user_id (UUID), status (TEXT: active|canceled), canceled_at (TIMESTAMP).',
+        durationMs: 40
+      },
+      {
+        type: 'THOUGHT',
+        content: 'Planning a parameterized aggregation for Q3 churn; avoiding string-concatenated SQL.',
+        durationMs: 210
+      },
+      {
+        type: 'ACTION',
+        content: 'Executing a read-only SQL aggregation tool.',
+        toolCall: {
+          name: 'mcp.tools.execute_sql',
+          args: '{"sql": "SELECT COUNT(*) FILTER (WHERE status=\'canceled\') * 100.0 / COUNT(*) AS churn FROM user_subscriptions;"}'
+        },
+        durationMs: 120
+      },
+      {
+        type: 'OBSERVATION',
+        content: 'SQL Result: churn = 2.84% (Q3 Churn Rate down 0.4% QoQ).',
+        durationMs: 30
+      },
+      wantsWrite
+        ? {
+            type: 'ACTION' as const,
+            content: 'Write tool requested — pausing for human approval before mutating executive_report.',
+            toolCall: {
+              name: 'mcp.tools.update_report',
+              args: '{"table":"executive_report","status":"PENDING_HUMAN_APPROVAL"}'
+            },
+            durationMs: 95
+          }
+        : {
+            type: 'THOUGHT' as const,
+            content: 'No write tools are required for this goal. Preparing a typed ExecutiveSummaryReport response.',
+            durationMs: 90
+          },
+      {
+        type: 'FINAL_ANSWER',
+        content: wantsWrite
+          ? 'Q3 churn is 2.84% (−0.4% QoQ). Database update is staged and waiting on human approval — not auto-committed.'
+          : 'Q3 Enterprise Churn Rate is 2.84% (−0.4% QoQ). Read-only analysis complete; no database writes were performed.',
+        durationMs: 50
+      }
+    ];
+  }
+
+  if (goal.includes('mcp') || goal.includes('tool') || goal.includes('protocol')) {
+    return [
+      {
+        type: 'THOUGHT',
+        content: `Goal mentions protocol/tooling: "${goalPrompt}". Enumerate MCP primitives before choosing a transport.`,
+        durationMs: 120
+      },
+      {
+        type: 'ACTION',
+        content: 'Listing MCP server capabilities over stdio.',
+        toolCall: { name: 'mcp.list_tools', args: '{"transport":"stdio"}' },
+        durationMs: 70
+      },
+      {
+        type: 'OBSERVATION',
+        content: 'Tools discovered: get_table_schema, execute_sql (read-only). Resources and prompts also advertised.',
+        durationMs: 35
+      },
+      {
+        type: 'THOUGHT',
+        content: 'For remote deployment prefer Streamable HTTP; keep legacy HTTP+SSE only for compatibility.',
+        durationMs: 100
+      },
+      {
+        type: 'FINAL_ANSWER',
+        content: 'Use stdio locally and Streamable HTTP remotely. Treat HTTP+SSE as deprecated. Gate consequential tools behind human approval.',
+        durationMs: 45
+      }
+    ];
+  }
+
+  if (goal.includes('attention') || goal.includes('kv') || goal.includes('vllm') || goal.includes('paged')) {
+    return [
+      {
+        type: 'THOUGHT',
+        content: `Goal is systems/memory oriented: "${goalPrompt}". Compare logical tokens vs allocated PagedAttention blocks.`,
+        durationMs: 110
+      },
+      {
+        type: 'ACTION',
+        content: 'Querying teaching calculator for fragmentation under block_size=16.',
+        toolCall: { name: 'sim.vllm.estimate', args: '{"block_size":16,"avg_tokens":512,"streams":64}' },
+        durationMs: 80
+      },
+      {
+        type: 'OBSERVATION',
+        content: 'Estimate: internal fragmentation comes from partially filled last pages; savings vs static max-length allocation can be large but must be measured on real hardware.',
+        durationMs: 40
+      },
+      {
+        type: 'FINAL_ANSWER',
+        content: 'PagedAttention reduces allocation waste via fixed-size pages. Treat published savings % as workload-dependent, not a universal constant.',
+        durationMs: 45
+      }
+    ];
+  }
+
+  return [
     {
       type: 'THOUGHT',
-      content: 'Goal requires querying user activity database to calculate Q3 churn rate, then updating the executive summary table.',
-      durationMs: 140
+      content: `Custom goal received: "${goalPrompt}". Breaking it into tool-usable substeps with explicit observations.`,
+      durationMs: 130
     },
     {
       type: 'ACTION',
-      content: 'Triggering MCP Database Tool to retrieve user retention schema.',
-      toolCall: { name: 'mcp.tools.get_table_schema', args: '{"table": "user_subscriptions"}' },
-      durationMs: 85
+      content: 'Calling a generic research tool for supporting facts.',
+      toolCall: { name: 'tools.lookup', args: JSON.stringify({ query: goalPrompt.slice(0, 120) }) },
+      durationMs: 90
     },
     {
       type: 'OBSERVATION',
-      content: 'Schema returned: id (INT), user_id (UUID), status (TEXT: active|canceled), canceled_at (TIMESTAMP).',
+      content: 'Lookup returned a short evidence snippet. Validating structure before drafting the final answer.',
       durationMs: 40
     },
     {
       type: 'THOUGHT',
-      content: 'Executing SQL aggregation: Count canceled users in Q3 divided by active baseline users.',
-      durationMs: 210
-    },
-    {
-      type: 'ACTION',
-      content: 'Invoking SQL execution tool with parameterized read query.',
-      toolCall: { name: 'mcp.tools.execute_sql', args: '{"sql": "SELECT COUNT(*) FILTER (WHERE status=\'canceled\') * 100.0 / COUNT(*) AS churn FROM user_subscriptions;"}' },
-      durationMs: 120
-    },
-    {
-      type: 'OBSERVATION',
-      content: 'SQL Result: churn = 2.84% (Q3 Churn Rate down 0.4% QoQ).',
-      durationMs: 30
-    },
-    {
-      type: 'THOUGHT',
-      content: 'PydanticAI validation passed (output_type=ExecutiveSummaryReport). Crafting final answer.',
-      durationMs: 90
+      content: 'No high-risk write tools were requested. Returning a concise, citation-free teaching summary.',
+      durationMs: 80
     },
     {
       type: 'FINAL_ANSWER',
-      content: 'Executive Report Updated: Q3 Enterprise Churn Rate is 2.84% (a 0.4% improvement QoQ). All metric logs persisted.',
+      content: `Completed a ReAct loop for: "${goalPrompt}". In production, attach typed schemas, retries, and approval gates around side-effecting tools.`,
       durationMs: 50
     }
   ];
+}
+
+export const ReactAgentSimulator: React.FC = () => {
+  const [goalPrompt, setGoalPrompt] = useState<string>('Analyze Q3 enterprise churn and update executive report in database');
+  const [appliedGoal, setAppliedGoal] = useState<string>(goalPrompt);
+  const [currentStepIndex, setCurrentStepIndex] = useState<number>(0);
+  const [isRunning, setIsRunning] = useState<boolean>(false);
+
+  const steps = useMemo(() => buildStepsForGoal(appliedGoal), [appliedGoal]);
+
+  const applyGoal = () => {
+    setAppliedGoal(goalPrompt.trim() || 'Summarize the ReAct loop for a generic engineering task');
+    setCurrentStepIndex(0);
+    setIsRunning(false);
+  };
 
   const handleNextStep = () => {
     if (currentStepIndex < steps.length - 1) {
@@ -90,7 +207,7 @@ export const ReactAgentSimulator: React.FC = () => {
             Thought → Action → Observation Cycle
           </h3>
           <p className="text-sm text-slate-500 mt-1">
-            Step through autonomous reasoning loops, tool calls, and reflection steps in real time.
+            Step through autonomous reasoning loops. The script adapts to your goal text (churn/SQL, MCP, vLLM, or generic).
           </p>
         </div>
 
@@ -121,25 +238,35 @@ export const ReactAgentSimulator: React.FC = () => {
         </div>
       </div>
 
-      {/* Goal Input */}
       <div className="mb-6 bg-slate-50 p-4 rounded-2xl border border-slate-100">
         <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block mb-1">
           Agent Task Objective
         </label>
-        <input
-          type="text"
-          value={goalPrompt}
-          onChange={(e) => setGoalPrompt(e.target.value)}
-          className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-        />
+        <div className="flex flex-col sm:flex-row gap-2">
+          <input
+            type="text"
+            value={goalPrompt}
+            onChange={(e) => setGoalPrompt(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && applyGoal()}
+            className="flex-1 bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          />
+          <button
+            onClick={applyGoal}
+            className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl"
+          >
+            Apply Goal
+          </button>
+        </div>
+        <p className="text-[11px] text-slate-500 mt-2">
+          Active script goal: <span className="font-mono text-slate-700">{appliedGoal}</span>
+        </p>
       </div>
 
-      {/* ReAct Stepper Visualization */}
       <div className="space-y-3 mb-6 max-h-96 overflow-y-auto p-2">
         {steps.slice(0, currentStepIndex + 1).map((step, idx) => (
           <div
-            key={idx}
-            className={`p-4 rounded-2xl border transition-all animate-fadeIn ${
+            key={`${appliedGoal}-${idx}-${step.type}`}
+            className={`p-4 rounded-2xl border transition-all ${
               step.type === 'THOUGHT'
                 ? 'bg-blue-950/90 text-blue-100 border-blue-800'
                 : step.type === 'ACTION'

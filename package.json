@@ -9,7 +9,10 @@
     "start": "node dist/server.cjs",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit && tsc --noEmit -p tsconfig.node.json"
+  },
+  "engines": {
+    "node": ">=22"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.1.14",
