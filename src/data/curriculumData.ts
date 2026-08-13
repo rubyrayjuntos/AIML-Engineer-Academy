@@ -7,7 +7,6 @@ export const modulesData: ModuleData[] = [
     tag: 'MODULE 01',
     title: 'Foundational Software Engineering & Machine Learning',
     subtitle: 'Building Deterministic Infrastructure for Probabilistic Systems',
-<<<<<<< HEAD
     description: 'Build async FastAPI SSE services, multi-stage Docker images, and classical TF-IDF pipelines. Practice a leakage & metrics clinic (contamination, target leak, preprocess leak) with honest held-out P/R/F1. Survey gRPC/WebSocket and dense retrieval as theory.',
     estimatedHours: 12,
     prerequisites: ['Python 3.11+', 'Basic REST API concepts', 'Linear Algebra fundamentals'],
