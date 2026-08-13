@@ -7,23 +7,25 @@ export const modulesData: ModuleData[] = [
     tag: 'MODULE 01',
     title: 'Foundational Software Engineering & Machine Learning',
     subtitle: 'Building Deterministic Infrastructure for Probabilistic Systems',
-    description: 'Build async FastAPI SSE services, multi-stage Docker images, and classical TF-IDF pipelines. Survey REST/gRPC/WebSocket tradeoffs and dense retrieval — those are theory, not required lab builds.',
+<<<<<<< HEAD
+    description: 'Build async FastAPI SSE services, multi-stage Docker images, and classical TF-IDF pipelines. Practice a leakage & metrics clinic (contamination, target leak, preprocess leak) with honest held-out P/R/F1. Survey gRPC/WebSocket and dense retrieval as theory.',
     estimatedHours: 12,
     prerequisites: ['Python 3.11+', 'Basic REST API concepts', 'Linear Algebra fundamentals'],
     competencyContract: {
       explain: [
         'Async I/O versus compute-bound work; REST vs SSE tradeoffs; gRPC and WebSocket options at survey level (not implemented in lab)',
-        'Class imbalance, bias-variance, and precision/recall/F1 on held-out metrics; data-leakage risks at survey level (no leakage-clinic exercise yet)',
+        'Train/test contamination, target leakage, and preprocess leakage — and why held-out precision/recall/F1 must not include training rows',
         'Sparse (TF-IDF) feature pipelines versus dense retrieval at survey level; reproducible multi-stage containers'
       ],
       buildAndDebug: [
         'Build an async FastAPI SSE streaming service',
         'Build a Pandas/scikit-learn cleaning + TF-IDF baseline and report held-out metrics',
+        'Run the leakage & metrics clinic to contrast polluted vs honest evaluation',
         'Validate and containerize the service with a multi-stage Docker build (CPU-oriented; no CUDA toolkit optimization required)'
       ],
       evidenceRequired: [
         'Runnable repository and Dockerfile',
-        'Automated tests plus held-out evaluation report for the TF-IDF pipeline',
+        'Automated tests plus held-out evaluation report and clinic findings',
         'Semantic version tag for the service/artifact set'
       ]
     },
@@ -31,7 +33,7 @@ export const modulesData: ModuleData[] = [
       'Implement async FastAPI streaming with asyncio and Server-Sent Events (SSE)',
       'Author and validate a multi-stage Dockerfile suitable for local/CI CPU runs',
       'Build a reproducible cleaning + sparse TF-IDF sklearn pipeline with held-out precision/recall/F1',
-      'Explain at survey level: gRPC/WebSocket tradeoffs, dense retrieval, and leakage pitfalls (theory; not lab exercises)',
+      'Detect and demonstrate train/test contamination, target leakage, and TF-IDF fit-on-full-data leakage via the clinic',
       'Apply semantic versioning to service and dataset/prompt artifacts'
     ],
     sections: [
@@ -45,13 +47,18 @@ Key infrastructure mandates:
 - **Decoupled API surfaces:** Lab implements REST + SSE for streaming inference. WebSockets/gRPC appear as survey tradeoffs, not required implementations.`
       },
       {
-        title: '1.2 Classical Machine Learning Pipelines & Vectorization',
+        title: '1.2 Classical Machine Learning Pipelines, Metrics & Leakage',
         content: `While pre-trained foundation models abstract away raw feature extraction, classical ML pipelines remain vital for hybrid retrieval and prompt evaluation.
 
 Key principles:
 - **Dense vs. Sparse Vectorization:** Combining TF-IDF/BM25 sparse keyword indices with neural dense embeddings to construct robust hybrid search indices.
 - **Factual Sanitization:** Data cleaning, deduplication, and PII masking before embedding ingestion.
-- **Quantitative Baselines:** Applying mathematical precision, recall, and F1 metrics to evaluate retrieval quality before feeding context into LLMs.`
+- **Honest held-out metrics:** Precision, recall, and F1 on a stratified test split only — never on rows the model already trained on.
+- **Leakage clinic (lab):** Three failure modes you must recognize:
+  1. **Train/test contamination** — identical prompts appear in both splits (or train rows are copied into the test set).
+  2. **Target leakage** — a feature that is a deterministic function of the label (e.g. a post-outcome code).
+  3. **Preprocess leakage** — fitting TF-IDF/scalers on the full corpus before the split so test tokens influence IDF/vocabulary.
+  Run \`python -m app.leakage_clinic\` in \`labs/module-1-foundations\` to see inflated vs honest numbers side by side.`
       }
     ],
     codeExamples: [
@@ -120,53 +127,46 @@ CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "3000"]
     ],
     lab: {
       id: 'lab1',
-      title: 'Containerized Async Streaming API',
+      title: 'Streaming API, TF-IDF Baseline & Leakage Clinic',
       environment: 'Local Python',
       workspacePath: 'labs/module-1-foundations',
       instructions: [
-        'Implement the real FastAPI service in `app/main.py` with `/health` and `/api/v1/generate/stream` endpoints.',
-        'Install `requirements.txt` inside the lab virtual environment and run `pytest -q` to verify SSE output and request validation.',
-        'Build the included multi-stage Docker image to confirm the service can run on port 3000 with only runtime dependencies.'
+        'Run the FastAPI SSE service in `app/main.py` (`/health`, `/api/v1/generate/stream`) and `pytest -q`.',
+        'Execute `python -m app.pipeline` for the honest TF-IDF + LogReg held-out report.',
+        'Run `python -m app.leakage_clinic` and confirm contamination / target-leak / preprocess-leak findings vs honest P/R/F1.',
+        'Build the multi-stage Docker image to confirm the CPU runtime path.'
       ],
       validationCommands: [
         'cd labs/module-1-foundations',
         'python -m venv .venv',
         'source .venv/bin/activate',
         'pip install -r requirements.txt',
-        'pytest -q'
+        'pytest -q',
+        'python -m app.pipeline',
+        'python -m app.leakage_clinic'
       ],
-      expectedOutput: '[SUCCESS] FastAPI server running on port 3000. Streaming tokens verified via SSE event loop.',
+      expectedOutput: '30 passed; clinic prints polluted vs honest accuracy and flags post_outcome_code',
       starterCode: {
         id: 'lab1_starter',
-        title: 'FastAPI Streaming Service',
+        title: 'Leakage Clinic: Detect Target Leak Columns',
         language: 'python',
-        filename: 'labs/module-1-foundations/app/main.py',
-        code: `import asyncio
-from fastapi import FastAPI
-from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, Field
+        filename: 'labs/module-1-foundations/app/leakage_clinic.py',
+        code: `from app.leakage_clinic import (
+    detect_target_leakage_columns,
+    make_target_leak_frame,
+    run_clinic,
+)
+from app.pipeline import load_and_clean
 
-app = FastAPI(title="Module 1 Streaming Lab", version="1.0.0")
+df = make_target_leak_frame(load_and_clean())
+print("flagged:", detect_target_leakage_columns(df))
 
-class PromptRequest(BaseModel):
-    prompt: str = Field(..., min_length=1, max_length=240)
-    temperature: float = Field(default=0.7, ge=0.0, le=2.0)
-
-async def token_generator(prompt: str):
-    intro = "Processing prompt"
-    for token in [intro, *prompt.split()[:4], "[DONE]"]:
-        await asyncio.sleep(0.01)
-        yield f"data: {token}\\n\\n"
-
-@app.get("/health")
-async def healthcheck():
-    return {"status": "ok"}
-
-@app.post("/api/v1/generate/stream")
-async def stream_generate(req: PromptRequest):
-    return StreamingResponse(token_generator(req.prompt), media_type="text/event-stream")
+findings = run_clinic()
+print("polluted", findings["contamination"]["polluted_accuracy"])
+print("honest  ", findings["contamination"]["honest_accuracy"])
+print("leaky F1", findings["target_leakage"]["leaky_macro_f1"])
 `,
-        explanation: 'Matches the runnable lab asset under `labs/module-1-foundations` and streams SSE responses with FastAPI.'
+        explanation: 'The clinic contrasts polluted evaluation paths with an honest held-out baseline. The correct production path remains app.pipeline.build_pipeline (TF-IDF fit on train only).'
       }
     },
     quizzes: [
@@ -221,6 +221,32 @@ async def stream_generate(req: PromptRequest):
         answerIndex: 1,
         explanation: 'Hybrid retrieval pairs lexical precision with semantic recall. Sparse baselines also give you an offline, reproducible comparison point.',
         concept: 'Hybrid Retrieval'
+      },
+      {
+        id: 'q1_5',
+        question: 'Which practice is a form of evaluation leakage in a TF-IDF classifier lab?',
+        options: [
+          'Fitting the TfidfVectorizer on the training split only, then transforming the test split',
+          'Reporting precision/recall/F1 on a stratified held-out test set',
+          'Fitting the TfidfVectorizer on the full corpus before the train/test split so test tokens influence IDF',
+          'Deduplicating identical prompts before splitting'
+        ],
+        answerIndex: 2,
+        explanation: 'Preprocess leakage happens when test data influences fitted transformers (vocab/IDF). The Module 1 clinic contrasts fit-on-full versus fit-on-train-only.',
+        concept: 'Data Leakage'
+      },
+      {
+        id: 'q1_6',
+        question: 'A feature column that is a deterministic encoding of the label is an example of what?',
+        options: [
+          'Class imbalance correction',
+          'Target leakage',
+          'Stratified sampling',
+          'Macro-F1 calibration'
+        ],
+        answerIndex: 1,
+        explanation: 'Target leakage lets the model read the answer through a proxy feature. The clinic’s post_outcome_code demo yields near-perfect F1 until the column is dropped.',
+        concept: 'Target Leakage'
       }
     ],
     flashcards: [
@@ -237,6 +263,13 @@ async def stream_generate(req: PromptRequest):
         category: 'DevOps & Infra',
         definition: 'A Docker strategy using multiple FROM statements in a single Dockerfile to separate build-time dependencies from runtime artifacts.',
         keyTakeaway: 'Can materially reduce image size and attack surface; measure the result for the actual base image and dependency set.'
+      },
+      {
+        id: 'fc1_leakage',
+        term: 'Train/Test & Target Leakage',
+        category: 'Classical ML',
+        definition: 'Evaluation contamination (train rows in the test set), label-derived features, or fitting preprocessors on the full corpus before splitting — all inflate metrics.',
+        keyTakeaway: 'Module 1 clinic (`python -m app.leakage_clinic`) contrasts polluted vs honest held-out P/R/F1.'
       }
     ]
   },
