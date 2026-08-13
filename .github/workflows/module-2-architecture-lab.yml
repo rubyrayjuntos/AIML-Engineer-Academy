@@ -12,6 +12,10 @@ permissions:
 jobs:
   validate-module-2-lab:
     runs-on: ubuntu-latest
+    # Content-repo CI grades the reference solutions. Learners leave this unset
+    # locally so pytest exercises their TODOs in app/mechanics.py.
+    env:
+      ACADEMY_SOLUTION: "1"
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4.2.2
