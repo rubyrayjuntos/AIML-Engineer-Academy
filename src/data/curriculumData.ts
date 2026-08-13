@@ -256,12 +256,12 @@ async def stream_generate(req: PromptRequest):
         'LoRA/int4 numerics versus AWQ/GGUF tradeoffs; diffusion forward + DDIM reverse toys; QLoRA as plan/optional dry-run — not a required real train in CI'
       ],
       buildAndDebug: [
-        'Compute NumPy mechanics: attention mask, KV bytes, LoRA, int4, GRPO advantage, MoE routing, diffusion forward+reverse, DPO loss toy, and a QLoRA plan artifact',
-        'Validate formulas against the module pytest suite',
+        'Implement scaffolded NumPy TODOs in app/mechanics.py (attention mask, KV bytes, LoRA, int4, GRPO, MoE, diffusion forward+reverse, DPO loss toy) plus a QLoRA plan artifact',
+        'Validate formulas against the module pytest suite (CI uses ACADEMY_SOLUTION=1 over mechanics_reference.py; learners leave it unset)',
         'Optionally dry-run GPU dependency paths when ACADEMY_GPU=1 without claiming a completed QLoRA train'
       ],
       evidenceRequired: [
-        'Passing pytest results for architecture mechanics (including diffusion reverse + DPO toys)',
+        'Passing pytest results for architecture mechanics (including diffusion reverse + DPO toys; solution-mode or completed TODOs)',
         'Evidence JSON with checksum and honest GPU / image-gen / DPO-train claims (false by default)',
         'Notes mapping lab numerics to production FlashAttention/MLA/QLoRA/vLLM/diffusion — without claiming unmeasured GPU runs'
       ]
@@ -468,25 +468,32 @@ print("err reduced", float(np.mean((x_prev - x0)**2)) < float(np.mean((xt - x0)*
         'cd labs/module-2-architecture',
         'python -m venv .venv && source .venv/bin/activate',
         'pip install -r requirements.txt',
-        'pytest -q  # 27 passed — includes DDIM reverse + DPO loss toys',
-        'python -m app.evidence --output artifacts/evidence.json'
+        'Implement TODOs in app/mechanics.py (lora_forward, int4 quant, GRPO, MoE, diffusion forward+reverse, DPO). Leave ACADEMY_SOLUTION unset.',
+        'pytest -q  # fails with NotImplementedError until TODOs are done; then 29 passed',
+        'python -m app.evidence --output artifacts/evidence.json',
+        'CI / peek only: ACADEMY_SOLUTION=1 pytest -q  # overlays mechanics_reference.py (29 passed)'
       ],
-      expectedOutput: '27 passed',
+      expectedOutput: '29 passed (after TODOs; or with ACADEMY_SOLUTION=1)',
       starterCode: {
         id: 'lab2_starter',
-        title: 'DDIM Reverse + DPO Loss Toys',
+        title: 'Scaffolded TODOs: Diffusion Reverse + DPO',
         language: 'python',
         filename: 'labs/module-2-architecture/app/mechanics.py',
-        code: `from app.mechanics import cosine_alpha_bar, q_sample, predict_x0_from_eps, ddim_step, dpo_loss
-import numpy as np
+        code: `import numpy as np
 
-alpha = cosine_alpha_bar(64)
-x0 = np.ones(4); eps = np.zeros(4)
-xt = q_sample(x0, t=10, alpha_bar=alpha, eps=eps)
-assert np.allclose(predict_x0_from_eps(xt, 10, alpha, eps), x0)
-print("dpo", round(dpo_loss(-0.5, -1.5, -1.0, -1.0, beta=0.1), 4))
+def predict_x0_from_eps(x_t, t, alpha_bar, eps_hat):
+    """x0 = (x_t - sqrt(1 - ᾱ_t) * eps_hat) / sqrt(ᾱ_t)  — implement this TODO."""
+    raise NotImplementedError("TODO: implement predict_x0_from_eps")
+
+def dpo_loss(logp_w, logp_l, logp_ref_w, logp_ref_l, beta=0.1):
+    """DPO BCE on provided log-probs — implement this TODO (not RLHF training)."""
+    raise NotImplementedError("TODO: implement dpo_loss")
+
+# Leave ACADEMY_SOLUTION unset while coding. CI sets ACADEMY_SOLUTION=1
+# to load app/mechanics_reference.py over unfinished stubs.
 `,
-        explanation: 'Algebraic reverse diffusion + DPO BCE toys. Claims diffusion_image_generated / dpo_policy_trained stay false in evidence.'
+        explanation: 'Module 2 is scaffolded: fill TODOs in mechanics.py (incl. DDIM reverse + DPO loss toys). Worked examples (causal mask, KV bytes, LoRA param count) stay complete. Claims diffusion_image_generated / dpo_policy_trained stay false. Optional QLoRA remains behind ACADEMY_GPU=1.'
+
       }
     },
     quizzes: [
