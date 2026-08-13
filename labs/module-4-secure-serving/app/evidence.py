@@ -25,6 +25,14 @@ def generate(output: Path) -> dict:
         "teaching_speedup": round(speculative_speedup(5, 0.7, 0.2, 1.0), 4),
         "note": "CPU closed-form estimate only; not a GPU/vLLM measurement",
     }
+    report["optional_gpu_track"] = {
+        "default_engine": "deterministic-cpu-v1",
+        "adapter": "app.vllm_adapter.OpenAICompatEngine",
+        "entrypoint": "uvicorn app.serve_optional:app",
+        "start_script": "scripts/start_vllm_optional.sh",
+        "env": ["ACADEMY_GPU=1", "ACADEMY_ENGINE=vllm", "ACADEMY_VLLM_URL"],
+        "note": "CI never starts vLLM; claims below stay false unless you measure a live server",
+    }
     report["claims"] = {"gpu_used": False, "vllm_measured": False, "local_cpu_path_measured": True}
     report["rubric"] = [
         {"competency": name, "points": 10} for name in [

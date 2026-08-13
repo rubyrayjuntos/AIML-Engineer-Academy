@@ -12,6 +12,8 @@ from dataclasses import dataclass
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.engine import InferenceEngine
+
 
 class GenerateRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -66,9 +68,9 @@ class DeterministicEngine:
         return " ".join(words), len(words)
 
 
-def create_app(settings: Settings | None = None, engine: DeterministicEngine | None = None) -> FastAPI:
+def create_app(settings: Settings | None = None, engine: InferenceEngine | None = None) -> FastAPI:
     cfg = settings or Settings(api_key=os.getenv("ACADEMY_API_KEY", "academy-local-key"))
-    model = engine or DeterministicEngine()
+    model: InferenceEngine = engine if engine is not None else DeterministicEngine()
     limiter = WindowRateLimiter(cfg.rate_limit, cfg.rate_window_seconds)
     semaphore = asyncio.Semaphore(cfg.max_concurrency)
     app = FastAPI(title="Module 4 Secure Inference", version="1.0.0")
@@ -119,4 +121,6 @@ def create_app(settings: Settings | None = None, engine: DeterministicEngine | N
     return app
 
 
+# Module import path for uvicorn; always CPU-deterministic unless tests inject an engine.
+# For optional vLLM: create_app(engine=build_engine_from_env()) in a custom entrypoint.
 app = create_app()

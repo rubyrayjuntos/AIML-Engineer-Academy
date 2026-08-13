@@ -1,0 +1,12 @@
+# Optional GPU extras for Module 2 QLoRA track.
+# Do NOT install these in Cloud Agent / CI by default.
+#
+#   pip install -r requirements-gpu.txt
+#   export ACADEMY_GPU=1
+#   python -m app.qlora_optional
+#
+torch>=2.2.0
+transformers>=4.40.0
+peft>=0.11.0
+bitsandbytes>=0.43.0
+accelerate>=0.30.0

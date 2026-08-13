@@ -233,19 +233,19 @@ async def stream_generate(req: PromptRequest):
     tag: 'MODULE 02',
     title: 'Advanced Large Language Model Architectures',
     subtitle: 'FlashAttention-3, MLA, Alignment, MoE, Quantization & Diffusion',
-    description: 'Deep dive into Transformer optimizations, DeepSeek Multi-Head Latent Attention (MLA), GRPO reasoning training, DeepSeek-V3 load-balancing & DualPipe, QLoRA/AWQ/GGUF quantization, and diffusion models for multimodal generation.',
-    estimatedHours: 22,
+    description: 'Deep dive into Transformer optimizations, DeepSeek Multi-Head Latent Attention (MLA), GRPO reasoning training, DeepSeek-V3 load-balancing & DualPipe, quantization paths (QLoRA/AWQ/GGUF), and diffusion models for multimodal generation. Required lab is CPU NumPy; optional CUDA QLoRA track is opt-in.',
+    estimatedHours: 24,
     prerequisites: ['Transformer Attention Mechanism $O(N^2)$', 'Matrix Multiplication', 'PyTorch Basics'],
     competencyContract: {
-      explain: ['Transformer attention, KV-cache behavior, and FlashAttention/MLA tradeoffs', 'SFT versus DPO versus GRPO and MoE routing', 'LoRA/QLoRA, quantization, and diffusion forward/reverse processes'],
-      buildAndDebug: ['Compute attention / KV-cache / LoRA / quantization / GRPO / MoE / diffusion schedule numerics in NumPy', 'Validate formulas against the module pytest suite', 'Generate a machine-readable evidence artifact from the lab'],
-      evidenceRequired: ['Passing pytest results for architecture mechanics (including diffusion schedules)', 'Evidence JSON with checksum', 'Notes comparing lab numerics to production QLoRA/vLLM/diffusion claims']
+      explain: ['Transformer attention, KV-cache behavior, and FlashAttention/MLA tradeoffs', 'SFT versus DPO versus GRPO and MoE routing', 'LoRA/QLoRA versus AWQ versus GGUF, and diffusion forward/reverse processes'],
+      buildAndDebug: ['Compute attention / KV-cache / LoRA / quantization / GRPO / MoE / diffusion schedule numerics in NumPy', 'Validate formulas against the module pytest suite', 'Produce a CPU-safe QLoRA plan artifact; optionally dry-run GPU deps when ACADEMY_GPU=1'],
+      evidenceRequired: ['Passing pytest results for architecture mechanics (including diffusion schedules)', 'Evidence JSON with checksum and honest GPU claims (false by default)', 'Notes comparing lab numerics to production QLoRA/vLLM/diffusion — without claiming unmeasured GPU runs']
     },
     objectives: [
       'Deconstruct FlashAttention-3 GPU memory tiling and Hopper Tensor Memory Accelerator (TMA) pipelining',
       'Analyze DeepSeek Multi-Head Latent Attention (MLA) low-rank KV cache compression mechanics',
       'Master Group Relative Policy Optimization (GRPO) without Critic models for reasoning LLMs',
-      'Implement QLoRA fine-tuning and export quantized GGUF/AWQ model weights for edge deployment',
+      'Explain QLoRA vs AWQ vs GGUF tradeoffs; complete the required NumPy LoRA/int4 lab and the optional CUDA QLoRA plan/dry-run when hardware allows',
       'Explain diffusion forward/reverse processes, latent diffusion, and text-conditioning for multimodal agents'
     ],
     sections: [
@@ -303,6 +303,22 @@ Running the process in a compressed **latent space** (VAE encoder/decoder) inste
 - Prefer **latent** pipelines for interactive agents; reserve pixel-space diffusion for research or specialized fidelity needs.
 - Sampler choice (DDIM, DPM-Solver, etc.) trades step count against quality — measure end-to-end tool latency, not just FLOPs.`,
         keyFormula: 'x_t = \\sqrt{\\bar{\\alpha}_t}\\, x_0 + \\sqrt{1-\\bar{\\alpha}_t}\\, \\epsilon,\\quad \\epsilon \\sim \\mathcal{N}(0,I)'
+      },
+      {
+        title: '2.6 Quantization Paths: QLoRA, AWQ & GGUF (Optional GPU Track)',
+        content: `The Module 2 **required** lab teaches LoRA parameter counting and symmetric int4 arithmetic in NumPy. Production stacks layer additional formats and runtimes on top:
+
+| Path | Role | When to use |
+| :--- | :--- | :--- |
+| **QLoRA** | Freeze a 4-bit (often NF4) base model; train small LoRA adapters | Parameter-efficient fine-tuning under VRAM pressure |
+| **AWQ** | Activation-aware **weight-only** quantization for inference | Faster/cheaper GPU serving after (or instead of) FT |
+| **GGUF** | llama.cpp / edge packaging after conversion | Local/CPU-friendly deployment — not a training method |
+
+**Optional GPU track (not CI):**
+- Set \`ACADEMY_GPU=1\`, install \`requirements-gpu.txt\`, run \`python -m app.qlora_optional\`.
+- Default output is a CPU-safe **plan** JSON with \`claims.gpu_used=false\`.
+- A real PEFT train only happens when you also set \`ACADEMY_QLORA_EXECUTE=1\` and \`ACADEMY_QLORA_MODEL\` on hardware you control.
+- Never treat the in-app “Preview Expected Logs” pane as measured GPU telemetry.`
       }
     ],
     codeExamples: [
@@ -346,7 +362,7 @@ model = get_peft_model(model, peft_config)
 model.print_trainable_parameters()
 # Output: trainable params: 4,194,304 || all params: 8,030,260,224 || trainable%: 0.052%
 `,
-        explanation: 'QLoRA freezes the base model in 4-bit precision while backpropagating gradients strictly through lightweight low-rank matrices.'
+        explanation: 'Reference QLoRA recipe (BitsAndBytes NF4 + PEFT). The required Module 2 lab validates LoRA/int4 numerics in NumPy; the optional GPU track may dry-run these imports under ACADEMY_GPU=1 without claiming a measured train in CI.'
       },
       {
         id: 'c2_grpo',
@@ -418,23 +434,19 @@ print("mid SNR-ish energy:", round(float(np.mean(x_mid**2)), 4))
         'pytest -q',
         'python -m app.evidence --output artifacts/evidence.json'
       ],
-      expectedOutput: '16 passed',
+      expectedOutput: '19 passed',
       starterCode: {
         id: 'lab2_starter',
-        title: 'Diffusion Schedule Smoke Check',
+        title: 'Optional QLoRA Plan Smoke Check',
         language: 'python',
-        filename: 'labs/module-2-architecture/app/mechanics.py',
-        code: `from app.mechanics import cosine_alpha_bar, q_sample
-import numpy as np
+        filename: 'labs/module-2-architecture/app/qlora_optional.py',
+        code: `from app.qlora_optional import build_qlora_plan, maybe_run_gpu_dry_run
 
-alpha_bar = cosine_alpha_bar(1000)
-x0 = np.ones(4)
-eps = np.zeros(4)
-xt = q_sample(x0, t=0, alpha_bar=alpha_bar, eps=eps)
-assert abs(float(xt.mean()) - 1.0) < 1e-3
-print("diffusion schedule ok", round(float(alpha_bar[-1]), 6))
+plan = maybe_run_gpu_dry_run(build_qlora_plan())
+assert plan["claims"]["qlora_executed"] is False
+print("mode", plan["gate"]["mode"], "rank", plan["lora"]["r"])
 `,
-        explanation: 'Smoke-checks the Module 2 diffusion helpers that now ship beside attention/LoRA/MoE numerics.'
+        explanation: 'Writes/inspects a CPU-safe QLoRA plan. GPU execution requires ACADEMY_GPU=1 on a CUDA host and never runs in default CI.'
       }
     },
     quizzes: [
@@ -515,6 +527,19 @@ print("diffusion schedule ok", round(float(alpha_bar[-1]), 6))
         answerIndex: 1,
         explanation: 'Latent diffusion denoises in a lower-dimensional latent grid, which is far cheaper than iterating a UNet over full-resolution pixels.',
         concept: 'Latent Diffusion'
+      },
+      {
+        id: 'q2_7',
+        question: 'How should you distinguish QLoRA, AWQ, and GGUF in a deployment plan?',
+        options: [
+          'They are three names for the same BitsAndBytes training flag',
+          'QLoRA is a PEFT training recipe on a quantized base; AWQ is primarily inference weight-only quantization; GGUF is an edge/llama.cpp packaging format',
+          'GGUF trains adapters; QLoRA only packages CPU binaries',
+          'AWQ replaces FlashAttention tiling on Hopper GPUs'
+        ],
+        answerIndex: 1,
+        explanation: 'Keep training (QLoRA), inference quantization (AWQ), and packaging (GGUF) separate. The Module 2 NumPy lab teaches LoRA/int4 arithmetic; optional CUDA QLoRA is opt-in and claim-gated.',
+        concept: 'Quantization Paths'
       }
     ],
     flashcards: [
@@ -545,6 +570,13 @@ print("diffusion schedule ok", round(float(alpha_bar[-1]), 6))
         category: 'Generative Models',
         definition: 'A fixed Markov chain that incrementally adds Gaussian noise to a clean sample $x_0$ until timestep $T$ approximates isotropic noise.',
         keyTakeaway: 'Training learns to reverse this corruption; inference starts from noise and denoises conditioned on text or other controls.'
+      },
+      {
+        id: 'fc2_5',
+        term: 'QLoRA vs AWQ vs GGUF',
+        category: 'Quantization',
+        definition: 'QLoRA fine-tunes LoRA adapters on a 4-bit base; AWQ quantizes weights for GPU inference; GGUF packages models for llama.cpp/edge runtimes.',
+        keyTakeaway: 'Required Module 2 path is NumPy LoRA/int4; real CUDA QLoRA is an optional ACADEMY_GPU=1 track with honest evidence claims.'
       }
     ]
   },
@@ -971,21 +1003,22 @@ print(compiled.render())
     slug: 'applied-ai-system-design',
     tag: 'MODULE 04',
     title: 'Secure Model Serving & Measured Benchmarking',
-    subtitle: 'Inference APIs, PagedAttention, Speculative Decoding & Security',
-    description: 'Build a secured inference endpoint, generate concurrent load, measure latency and throughput, enforce regression budgets, connect CPU-verifiable serving mechanics to vLLM architecture, and apply speculative decoding teaching models.',
+    subtitle: 'Inference APIs, PagedAttention, Speculative Decoding & Optional vLLM',
+    description: 'Build a secured inference endpoint, generate concurrent load, measure latency and throughput, enforce regression budgets, connect CPU-verifiable serving mechanics to vLLM architecture, and optionally attach a real OpenAI-compatible vLLM engine behind ACADEMY_GPU=1.',
     estimatedHours: 20,
     prerequisites: ['Module 1-3', 'Distributed Systems basics', 'Virtual Memory concepts'],
     competencyContract: {
-      explain: ['TTFT, ITL, throughput, continuous batching, PagedAttention, and speculative decoding', 'Prefill/decode separation, caching, and chat/browser/SQL agent topologies', 'Indirect prompt injection and privilege boundaries'],
-      buildAndDebug: ['Run the authenticated FastAPI inference endpoint under concurrent load', 'Measure p50/p95/p99 latency and throughput with regression budgets', 'Estimate speculative-decoding acceptance length / teaching speedup and exercise auth/rate limits'],
-      evidenceRequired: ['Passing serving/security tests', 'Measured benchmark JSON (CPU engine; not GPU/vLLM)', 'Evidence artifact and threat-model notes']
+      explain: ['TTFT, ITL, throughput, continuous batching, PagedAttention, and speculative decoding', 'Prefill/decode separation, caching, and chat/browser/SQL agent topologies', 'Indirect prompt injection, privilege boundaries, and when the optional vLLM adapter is claim-safe'],
+      buildAndDebug: ['Run the authenticated FastAPI inference endpoint under concurrent load', 'Measure p50/p95/p99 latency and throughput with regression budgets', 'Estimate speculative-decoding acceptance length / teaching speedup; wire InferenceEngine to vLLM only when ACADEMY_GPU=1'],
+      evidenceRequired: ['Passing serving/security tests', 'Measured benchmark JSON (CPU engine by default; not GPU/vLLM)', 'Evidence artifact with claims.gpu_used/vllm_measured false unless a live GPU path was measured']
     },
     objectives: [
       'Deconstruct vLLM PagedAttention virtual memory block allocation to eliminate KV cache fragmentation',
       'Evaluate supported block sizes for a specific vLLM version, model kernel, and accelerator',
       'Architect Disaggregated Prefill & Decode GPU clusters with FlowKV RDMA streaming',
       'Implement production serving boundaries: authentication, request limits, timeouts, concurrency control, rate limiting, and measurable performance gates',
-      'Explain speculative decoding (draft/target, γ, acceptance) and when it helps memory-bound decode'
+      'Explain speculative decoding (draft/target, γ, acceptance) and when it helps memory-bound decode',
+      'Use the optional GPU track (ACADEMY_ENGINE=vllm + OpenAICompatEngine) only on CUDA hosts without mislabeling CPU evidence'
     ],
     sections: [
       {
@@ -1051,7 +1084,7 @@ python -m vllm.entrypoints.openai.api_server \\
     --enable-chunked-prefill \\
     --tensor-parallel-size 1
 `,
-        explanation: 'Launches vLLM with PagedAttention block size set to 16 tokens and chunked prefill enabled.'
+        explanation: 'Reference vLLM launch flags for a CUDA host. Module 4 CI uses DeterministicEngine; optional track wires OpenAICompatEngine via ACADEMY_GPU=1 and scripts/start_vllm_optional.sh — never claim vLLM measurements from the CPU path.'
       },
       {
         id: 'c4_dual_llm',
@@ -1133,20 +1166,24 @@ print("teaching speedup vs baseline=", round(speculative_speedup(gamma, p, t_dra
         'python -m app.benchmark --output artifacts/benchmark.json',
         'python -m app.evidence --output artifacts/evidence.json'
       ],
-      expectedOutput: 'Serving/security tests pass (including speculative teaching helpers); measured benchmark meets error-rate, p95 latency, and throughput budgets.',
+      expectedOutput: '27 passed (+1 gpu skipped offline); measured CPU benchmark meets budgets; claims.vllm_measured=false by default.',
       starterCode: {
         id: 'lab4_starter',
-        title: 'Speculative Decode Smoke + Serving Benchmark',
+        title: 'Engine Factory + Speculative Smoke',
         language: 'python',
-        filename: 'labs/module-4-secure-serving/app/speculation.py',
-        code: `from app.speculation import expected_accepted_length, speculative_speedup
+        filename: 'labs/module-4-secure-serving/app/engine.py',
+        code: `from app.engine import build_engine_from_env, selected_engine_name
+from app.speculation import speculative_speedup
 
-assert expected_accepted_length(1, 0.0) == 1.0
-speedup = speculative_speedup(5, 0.7, t_draft=0.2, t_verify=1.0)
-print("teaching speedup", round(speedup, 3))
-# Then run the measured FastAPI benchmark path (CPU engine — not GPU/vLLM).
+assert selected_engine_name() == "deterministic"
+engine = build_engine_from_env()
+assert engine.name == "deterministic-cpu-v1"
+print("teaching speedup", round(speculative_speedup(5, 0.7, 0.2, 1.0), 3))
+# Optional CUDA host only:
+#   ACADEMY_GPU=1 ACADEMY_ENGINE=vllm ACADEMY_VLLM_URL=http://127.0.0.1:8001
+#   uvicorn app.serve_optional:app
 `,
-        explanation: 'Smoke-checks closed-form speculative helpers before exercising the authenticated FastAPI benchmark path.'
+        explanation: 'Default factory stays on DeterministicEngine. vLLM requires an explicit ACADEMY_GPU=1 gate so evidence cannot silently mislabel CPU runs.'
       }
     },
     quizzes: [
