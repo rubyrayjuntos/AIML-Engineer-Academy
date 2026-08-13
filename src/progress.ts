@@ -1,3 +1,4 @@
+import { nextPersistedQuizScore } from './quizScoring';
 import { UserProgress } from './types';
 
 export const defaultProgress = (): UserProgress => ({
@@ -56,5 +57,20 @@ export function parseProgress(raw: unknown): UserProgress | null {
     codeRunHistory,
     certificateGranted: Boolean(raw.certificateGranted),
     userLevel
+  };
+}
+
+export function applyRecordedQuizScore(
+  progress: UserProgress,
+  moduleId: number,
+  attemptPercent: number
+): UserProgress {
+  const key = String(moduleId);
+  const nextScore = nextPersistedQuizScore(progress.quizScores[key], attemptPercent);
+  if (progress.quizScores[key] === nextScore) return progress;
+  return {
+    ...progress,
+    quizScores: { ...progress.quizScores, [key]: nextScore },
+    certificateGranted: false
   };
 }

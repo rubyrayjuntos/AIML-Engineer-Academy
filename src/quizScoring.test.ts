@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { applyQuizSelection, scoreModuleQuiz, submitModuleQuiz } from './quizScoring';
+import {
+  applyQuizSelection,
+  nextPersistedQuizScore,
+  quizSessionForModule,
+  scoreModuleQuiz,
+  submitModuleQuiz
+} from './quizScoring';
 
 const quizzes = [
   { id: 'q1', answerIndex: 0 },
@@ -43,5 +49,39 @@ describe('submitModuleQuiz', () => {
   it('does not overwrite the score on a second submit', () => {
     const again = submitModuleQuiz(true, quizzes, { q1: 0, q2: 1, q3: 2, q4: 0 });
     expect(again.scorePercent).toBeNull();
+  });
+});
+
+describe('nextPersistedQuizScore', () => {
+  it('stores the first attempt', () => {
+    expect(nextPersistedQuizScore(undefined, 75)).toBe(75);
+  });
+
+  it('keeps a higher previous score after a weaker retake', () => {
+    expect(nextPersistedQuizScore(80, 40)).toBe(80);
+  });
+
+  it('raises the stored score when a retake improves', () => {
+    expect(nextPersistedQuizScore(60, 90)).toBe(90);
+  });
+});
+
+describe('quizSessionForModule', () => {
+  const inProgress = { q1: 0, q2: 1 };
+
+  it('keeps answers and lock on the same module', () => {
+    expect(quizSessionForModule(2, 2, inProgress, true)).toEqual({
+      moduleId: 2,
+      selectedAnswers: inProgress,
+      locked: true
+    });
+  });
+
+  it('clears answers and lock when switching modules', () => {
+    expect(quizSessionForModule(2, 3, inProgress, true)).toEqual({
+      moduleId: 3,
+      selectedAnswers: {},
+      locked: false
+    });
   });
 });

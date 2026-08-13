@@ -29,3 +29,24 @@ export function submitModuleQuiz(
   if (locked) return { locked: true, scorePercent: null };
   return { locked: true, scorePercent: scoreModuleQuiz(quizzes, selectedAnswers) };
 }
+
+/** Best score to keep for certificate eligibility; retakes must not lower a prior pass. */
+export function nextPersistedQuizScore(previous: number | undefined, attempt: number): number {
+  if (typeof previous === 'number' && Number.isFinite(previous)) {
+    return Math.max(previous, attempt);
+  }
+  return attempt;
+}
+
+/** Fresh quiz UI when the learner opens a different module; same module keeps in-session lock. */
+export function quizSessionForModule(
+  sessionModuleId: number,
+  moduleId: number,
+  selectedAnswers: Record<string, number>,
+  locked: boolean
+): { moduleId: number; selectedAnswers: Record<string, number>; locked: boolean } {
+  if (sessionModuleId === moduleId) {
+    return { moduleId, selectedAnswers, locked };
+  }
+  return { moduleId, selectedAnswers: {}, locked: false };
+}

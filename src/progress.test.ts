@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { defaultProgress, parseProgress } from './progress';
+import { applyRecordedQuizScore, defaultProgress, parseProgress } from './progress';
 
 describe('parseProgress', () => {
   it('returns null for non-objects', () => {
@@ -37,5 +37,26 @@ describe('parseProgress', () => {
       learnedFlashcards: ['ok'],
       certificateGranted: true
     });
+  });
+});
+
+describe('applyRecordedQuizScore', () => {
+  it('does not let a weaker retake replace a passing module score', () => {
+    const before = {
+      ...defaultProgress(),
+      quizScores: { '1': 80 },
+      certificateGranted: true
+    };
+    const after = applyRecordedQuizScore(before, 1, 40);
+    expect(after).toBe(before);
+    expect(after.quizScores['1']).toBe(80);
+    expect(after.certificateGranted).toBe(true);
+  });
+
+  it('records an improved retake', () => {
+    const before = { ...defaultProgress(), quizScores: { '1': 50 } };
+    const after = applyRecordedQuizScore(before, 1, 90);
+    expect(after.quizScores['1']).toBe(90);
+    expect(after.certificateGranted).toBe(false);
   });
 });

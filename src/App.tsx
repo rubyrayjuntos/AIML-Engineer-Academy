@@ -23,7 +23,7 @@ import { AiMentorModal } from './components/AiMentorModal';
 import { CertificateModal } from './components/CertificateModal';
 import { SearchResultsView } from './components/SearchResultsView';
 import { Sliders } from 'lucide-react';
-import { defaultProgress, parseProgress } from './progress';
+import { applyRecordedQuizScore, defaultProgress, parseProgress } from './progress';
 
 export default function App() {
   const [activeView, setActiveView] = useState<string>('overview');
@@ -74,11 +74,7 @@ export default function App() {
   };
 
   const recordQuizScore = useCallback((moduleId: number, scorePercent: number) => {
-    setProgress(prev => ({
-      ...prev,
-      quizScores: { ...prev.quizScores, [String(moduleId)]: scorePercent },
-      certificateGranted: false
-    }));
+    setProgress(prev => applyRecordedQuizScore(prev, moduleId, scorePercent));
   }, []);
 
   const recordProgramQuizScore = useCallback((scorePercent: number) => {
@@ -161,6 +157,7 @@ export default function App() {
 
           {currentModule && (
             <ModuleView
+              key={currentModule.id}
               module={currentModule}
               progress={progress}
               onToggleComplete={toggleModuleComplete}

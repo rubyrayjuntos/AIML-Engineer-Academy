@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { ModuleData, UserProgress } from '../types';
 import { CodeBlock } from './CodeBlock';
 import { MarkdownContent } from './MarkdownContent';
-import { applyQuizSelection, submitModuleQuiz } from '../quizScoring';
+import { applyQuizSelection, quizSessionForModule, submitModuleQuiz } from '../quizScoring';
 import { BookOpen, Code2, FlaskConical, CheckSquare, CheckCircle2, Play, ArrowRight, ArrowLeft, MessageSquareText, Wrench, FolderCheck } from 'lucide-react';
 
 interface ModuleViewProps {
@@ -27,21 +27,31 @@ export const ModuleView: React.FC<ModuleViewProps> = ({
   onNavigatePrev
 }) => {
   const [activeTab, setActiveTab] = useState<'theory' | 'code' | 'lab' | 'quiz'>('theory');
+  const [quizModuleId, setQuizModuleId] = useState(module.id);
   const [selectedAnswers, setSelectedAnswers] = useState<Record<string, number>>({});
   const [showQuizResults, setShowQuizResults] = useState<boolean>(false);
   const [labOutput, setLabOutput] = useState<string | null>(null);
   const [isLabRunning, setIsLabRunning] = useState<boolean>(false);
 
+  const quizSession = quizSessionForModule(quizModuleId, module.id, selectedAnswers, showQuizResults);
+  if (quizModuleId !== quizSession.moduleId) {
+    setQuizModuleId(quizSession.moduleId);
+    setSelectedAnswers(quizSession.selectedAnswers);
+    setShowQuizResults(quizSession.locked);
+  }
+
   const isCompleted = progress.completedModules.includes(module.id);
   const labConfirmed = Boolean(progress.labCompletions[module.lab.id]);
+  const quizLocked = quizSession.locked;
+  const quizAnswers = quizSession.selectedAnswers;
 
   const handleSelectQuizOption = (quizId: string, optionIdx: number) => {
-    setSelectedAnswers(prev => applyQuizSelection(prev, quizId, optionIdx, showQuizResults));
+    setSelectedAnswers(applyQuizSelection(quizAnswers, quizId, optionIdx, quizLocked));
   };
 
   const handleSubmitQuiz = () => {
-    const result = submitModuleQuiz(showQuizResults, module.quizzes, selectedAnswers);
-    if (showQuizResults) return;
+    const result = submitModuleQuiz(quizLocked, module.quizzes, quizAnswers);
+    if (quizLocked) return;
     setShowQuizResults(true);
     if (result.scorePercent === null) return;
     onRecordQuizScore(module.id, result.scorePercent);
@@ -299,16 +309,16 @@ export const ModuleView: React.FC<ModuleViewProps> = ({
             </div>
 
             <button
-              onClick={showQuizResults ? handleRetakeQuiz : handleSubmitQuiz}
+              onClick={quizLocked ? handleRetakeQuiz : handleSubmitQuiz}
               className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl shadow-md shadow-indigo-200 transition-all"
             >
-              {showQuizResults ? 'Retake Quiz' : 'Submit & Check Answers'}
+              {quizLocked ? 'Retake Quiz' : 'Submit & Check Answers'}
             </button>
           </div>
 
           <div className="space-y-6">
             {module.quizzes.map((q, idx) => {
-              const selectedOpt = selectedAnswers[q.id];
+              const selectedOpt = quizAnswers[q.id];
               const isCorrect = selectedOpt === q.answerIndex;
 
               return (
@@ -331,13 +341,13 @@ export const ModuleView: React.FC<ModuleViewProps> = ({
                           key={optIdx}
                           type="button"
                           aria-pressed={isSelected}
-                          disabled={showQuizResults}
+                          disabled={quizLocked}
                           onClick={() => handleSelectQuizOption(q.id, optIdx)}
                           className={`w-full text-left p-3 rounded-xl text-xs font-medium transition-all border ${
                             isSelected
                               ? 'bg-indigo-600 text-white border-indigo-600 font-bold ring-2 ring-indigo-300'
                               : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
-                          } ${showQuizResults ? 'cursor-default' : ''}`}
+                          } ${quizLocked ? 'cursor-default' : ''}`}
                         >
                           <span className="font-mono font-bold mr-2 opacity-70">{String.fromCharCode(65 + optIdx)}.</span>
                           {opt}
@@ -346,7 +356,7 @@ export const ModuleView: React.FC<ModuleViewProps> = ({
                     })}
                   </div>
 
-                  {showQuizResults && selectedOpt !== undefined && (
+                  {quizLocked && selectedOpt !== undefined && (
                     <div className={`p-3 rounded-xl text-xs border ${isCorrect ? 'bg-emerald-50 text-emerald-900 border-emerald-200' : 'bg-rose-50 text-rose-900 border-rose-200'}`}>
                       <strong className="block font-bold mb-1">
                         {isCorrect ? '✓ Correct Answer' : '✗ Incorrect'}
