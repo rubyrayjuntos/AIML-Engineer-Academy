@@ -7,19 +7,32 @@ export const modulesData: ModuleData[] = [
     tag: 'MODULE 01',
     title: 'Foundational Software Engineering & Machine Learning',
     subtitle: 'Building Deterministic Infrastructure for Probabilistic Systems',
-    description: 'Master asynchronous Python runtime execution, multi-stage Docker containerization, REST/gRPC streaming APIs, and classical feature engineering pipelines.',
+    description: 'Build async FastAPI SSE services, multi-stage Docker images, and classical TF-IDF pipelines. Survey REST/gRPC/WebSocket tradeoffs and dense retrieval — those are theory, not required lab builds.',
     estimatedHours: 12,
     prerequisites: ['Python 3.11+', 'Basic REST API concepts', 'Linear Algebra fundamentals'],
     competencyContract: {
-      explain: ['Async I/O versus compute-bound work; REST, gRPC, SSE, and WebSocket tradeoffs', 'Data leakage, class imbalance, bias-variance, and precision/recall/F1', 'Sparse versus dense retrieval and reproducible containers'],
-      buildAndDebug: ['Build an async FastAPI streaming service', 'Build a Pandas/scikit-learn cleaning pipeline and TF-IDF baseline', 'Test and containerize the service with a multi-stage Docker build'],
-      evidenceRequired: ['Runnable repository and Dockerfile', 'Automated test results and evaluation report', 'Semantic version tag']
+      explain: [
+        'Async I/O versus compute-bound work; REST vs SSE tradeoffs; gRPC and WebSocket options at survey level (not implemented in lab)',
+        'Class imbalance, bias-variance, and precision/recall/F1 on held-out metrics; data-leakage risks at survey level (no leakage-clinic exercise yet)',
+        'Sparse (TF-IDF) feature pipelines versus dense retrieval at survey level; reproducible multi-stage containers'
+      ],
+      buildAndDebug: [
+        'Build an async FastAPI SSE streaming service',
+        'Build a Pandas/scikit-learn cleaning + TF-IDF baseline and report held-out metrics',
+        'Validate and containerize the service with a multi-stage Docker build (CPU-oriented; no CUDA toolkit optimization required)'
+      ],
+      evidenceRequired: [
+        'Runnable repository and Dockerfile',
+        'Automated tests plus held-out evaluation report for the TF-IDF pipeline',
+        'Semantic version tag for the service/artifact set'
+      ]
     },
     objectives: [
-      'Architect async FastAPI streaming servers using asyncio and Server-Sent Events (SSE)',
-      'Construct lightweight multi-stage Dockerfiles optimizing CUDA toolkits & binaries',
-      'Design reproducible data preparation & sparse/dense feature vectorization pipelines',
-      'Set up semantic versioning for prompt templates and dataset artifact registries'
+      'Implement async FastAPI streaming with asyncio and Server-Sent Events (SSE)',
+      'Author and validate a multi-stage Dockerfile suitable for local/CI CPU runs',
+      'Build a reproducible cleaning + sparse TF-IDF sklearn pipeline with held-out precision/recall/F1',
+      'Explain at survey level: gRPC/WebSocket tradeoffs, dense retrieval, and leakage pitfalls (theory; not lab exercises)',
+      'Apply semantic versioning to service and dataset/prompt artifacts'
     ],
     sections: [
       {
@@ -29,7 +42,7 @@ export const modulesData: ModuleData[] = [
 Key infrastructure mandates:
 - **Asynchronous Token Streaming:** Utilizing FastAPI with \`EventSourceResponse\` or async generators so tokens reach the UI immediately as generated, eliminating HTTP gateway timeouts.
 - **Multi-Stage Containerization:** Docker builds should separate build dependencies from the final runtime. Image-size and cold-start improvements depend on the model, base image, native libraries, and deployment platform.
-- **Decoupled API Architectures:** Implementing RESTful interfaces for synchronous tasks alongside SSE/WebSockets for streaming inference outputs.`
+- **Decoupled API surfaces:** Lab implements REST + SSE for streaming inference. WebSockets/gRPC appear as survey tradeoffs, not required implementations.`
       },
       {
         title: '1.2 Classical Machine Learning Pipelines & Vectorization',
@@ -232,34 +245,38 @@ async def stream_generate(req: PromptRequest):
     slug: 'advanced-llm-architectures',
     tag: 'MODULE 02',
     title: 'Advanced Large Language Model Architectures',
-    subtitle: 'FlashAttention-3, MLA, Alignment, MoE, Quantization & Diffusion',
-    description: 'Deep dive into Transformer optimizations, DeepSeek Multi-Head Latent Attention (MLA), GRPO reasoning training, DeepSeek-V3 load-balancing & DualPipe, quantization paths (QLoRA/AWQ/GGUF), and diffusion models for multimodal generation. Required lab is CPU NumPy; optional CUDA QLoRA track is opt-in.',
+    subtitle: 'KV Math, Alignment Numerics, MoE, Quantization & Diffusion',
+    description: 'Practice NumPy mechanics for attention/KV bytes, LoRA/int4, GRPO advantages, MoE routing, and diffusion forward schedules. Survey FlashAttention, MLA, DualPipe, DPO, and AWQ/GGUF — required lab is CPU NumPy; optional CUDA QLoRA is opt-in only.',
     estimatedHours: 24,
     prerequisites: ['Transformer Attention Mechanism $O(N^2)$', 'Matrix Multiplication', 'PyTorch Basics'],
     competencyContract: {
-      explain: ['Transformer attention, KV-cache behavior, and FlashAttention/MLA tradeoffs', 'SFT versus DPO versus GRPO and MoE routing', 'LoRA/QLoRA versus AWQ versus GGUF, and diffusion forward/reverse processes'],
+      explain: [
+        'Transformer attention and KV-cache byte math; FlashAttention and MLA ideas at survey level (no kernel and no real MLA compression in lab)',
+        'SFT versus GRPO advantage math and MoE routing mechanics; DualPipe at survey level; DPO as a NumPy loss toy on provided log-probs (not a full RLHF train)',
+        'LoRA/int4 numerics versus AWQ/GGUF tradeoffs; diffusion forward + DDIM reverse toys; QLoRA as plan/optional dry-run — not a required real train in CI'
+      ],
       buildAndDebug: [
-        'Compute attention / KV-cache / LoRA / quantization / GRPO / MoE / diffusion forward+reverse / DPO loss numerics in NumPy',
+        'Compute NumPy mechanics: attention mask, KV bytes, LoRA, int4, GRPO advantage, MoE routing, diffusion forward+reverse, DPO loss toy, and a QLoRA plan artifact',
         'Validate formulas against the module pytest suite',
-        'Produce a CPU-safe QLoRA plan artifact; optionally dry-run GPU deps when ACADEMY_GPU=1'
+        'Optionally dry-run GPU dependency paths when ACADEMY_GPU=1 without claiming a completed QLoRA train'
       ],
       evidenceRequired: [
         'Passing pytest results for architecture mechanics (including diffusion reverse + DPO toys)',
         'Evidence JSON with checksum and honest GPU / image-gen / DPO-train claims (false by default)',
-        'Notes comparing lab numerics to production QLoRA/vLLM/diffusion — without claiming unmeasured runs'
+        'Notes mapping lab numerics to production FlashAttention/MLA/QLoRA/vLLM/diffusion — without claiming unmeasured GPU runs'
       ]
     },
     objectives: [
-      'Deconstruct FlashAttention-3 GPU memory tiling and Hopper Tensor Memory Accelerator (TMA) pipelining',
-      'Analyze DeepSeek Multi-Head Latent Attention (MLA) low-rank KV cache compression mechanics',
-      'Compute GRPO advantages and the DPO loss toy on provided log-probs (not a full RLHF train)',
-      'Explain QLoRA vs AWQ vs GGUF tradeoffs; complete the required NumPy LoRA/int4 lab and the optional CUDA QLoRA plan/dry-run when hardware allows',
+      'Explain at survey level FlashAttention-3 tiling/TMA and MLA low-rank KV compression (theory; lab proves NumPy attention/KV math only)',
+      'Compute and validate GRPO-style advantage numerics and the DPO loss toy on provided log-probs (not a full RLHF train)',
+      'Implement NumPy LoRA and int4 quantization mechanics; produce a CPU-safe QLoRA plan (optional CUDA dry-run only — no real QLoRA train in CI)',
+      'Explain MoE routing and DualPipe/load-balancing concepts at survey level; compute MoE routing numerics in the lab',
       'Implement diffusion forward q_sample plus DDIM reverse toys (predict_x0 / one η=0 step) — not image generation'
     ],
     sections: [
       {
         title: '2.1 FlashAttention-3 and Hopper Hardware Optimization',
-        content: `Standard self-attention requires storing intermediate $N \\times N$ attention matrices in GPU High-Bandwidth Memory (HBM), scaling quadratically with sequence length $O(N^2)$.
+        content: `Standard self-attention requires storing intermediate $N \\times N$ attention matrices in GPU High-Bandwidth Memory (HBM), scaling quadratically with sequence length $O(N^2)$. **Survey topic** — Module 2 lab proves NumPy attention/KV math, not a FlashAttention kernel.
 
 **FlashAttention-3 Key Breakthroughs:**
 - **Asynchronous Producer-Consumer Pipelining:** On NVIDIA Hopper GPUs (H100/H200), FlashAttention-3 leverages the Tensor Memory Accelerator (TMA) to asynchronously load data chunks into fast on-chip SRAM while Tensor Cores simultaneously compute GEMM matrix operations.
@@ -641,31 +658,43 @@ print("dpo", round(dpo_loss(-0.5, -1.5, -1.0, -1.0, beta=0.1), 4))
     slug: 'agent-orchestration',
     tag: 'MODULE 03',
     title: 'AI Agent Orchestration & Protocol Standards',
-    subtitle: 'ReAct, MCP, PydanticAI, LangGraph & Browser Computer-Use',
-    description: 'Build autonomous cyclic agentic workflows. Master ReAct loops, Model Context Protocol transports, type-safe PydanticAI tools, LangGraph state machines, and governed browser / computer-use agents.',
+    subtitle: 'ReAct, MCP, Structured SQL Agents & Browser Survey',
+    description: 'Build a Customer Success HITL agent and a read-only SQL/MCP lane with structured outputs and firewalls. Survey LangGraph, live PydanticAI, Streamable HTTP, and Playwright-style computer-use — those are theory or optional, not required CI builds.',
     estimatedHours: 18,
     prerequisites: ['Module 1 & 2', 'JSON Schema', 'Python Type Hints'],
     competencyContract: {
-      explain: ['ReAct loops, DSPy-style prompt compilation, state machines, RAG versus fine-tuning, and agent memory', 'MCP primitives and current transports', 'Structured output (PydanticAI shape), SQL read-only firewalls, retries, human approval boundaries, and browser/computer-use action spaces'],
-      buildAndDebug: ['Build a Pydantic structured-output agent (CS HITL + SQLQueryResult seam)', 'Connect an MCP server/client to read-only SQLite CS and SQL tools', 'Design a governed browser-tool loop with untrusted page observations and write-action approval'],
-      evidenceRequired: ['Runnable agent repository and MCP protocol trace', 'Agent tests covering CS governance plus SQL firewall/repair', 'Threat model covering tool, SQL, and browser IPI surfaces']
+      explain: [
+        'ReAct loops, DSPy-style prompt compilation (BootstrapFewShot teaching stub), RAG versus fine-tuning, and agent memory',
+        'MCP primitives with stdio transport in lab; Streamable HTTP and other remote transports at survey level',
+        'Structured-output shapes (Pydantic models / PydanticAI-shaped validation), SQL read-only firewalls/repair, HITL approval; LangGraph and browser/computer-use action spaces at survey level'
+      ],
+      buildAndDebug: [
+        'Build a CustomerSuccess HITL agent with Pydantic structured output (SQLQueryResult seam) — no live pydantic_ai package required in CI',
+        'Connect an MCP stdio server/client to read-only SQLite CS and SQL tools with firewall/repair tests',
+        'Exercise a DSPy-style teaching stub; design (on paper / threat model) a governed browser-tool loop — no Playwright browser lab in CI'
+      ],
+      evidenceRequired: [
+        'Runnable agent repository and MCP stdio protocol trace',
+        'Agent tests covering CS HITL governance plus SQL RO firewall/repair',
+        'Threat model covering tool and SQL surfaces; optional browser IPI notes at survey level (not a Playwright lab deliverable)'
+      ]
     },
     objectives: [
-      'Master the ReAct (Reasoning + Acting) loop mechanics and reflection loops',
-      'Compile prompts with a DSPy-style metric + trainset (BootstrapFewShot teaching stub) instead of vibe edits',
-      'Implement MCP servers using stdio locally and Streamable HTTP remotely',
-      'Build deterministic, type-safe tool-calling agents using PydanticAI-shaped output_type validation',
-      'Align text-to-SQL with schema MCP tools, RO execution, and repair loops (bp_sql_agent)',
-      'Construct cyclic multi-agent state machines using LangGraph with human-in-the-loop nodes',
-      'Design browser / computer-use agents with least-privilege tools, a11y observations, and HITL gates for consequential actions'
+      'Apply ReAct loop mechanics in the CustomerSuccess HITL lab (explain reflection loops; do not claim mastery of all agent patterns)',
+      'Use a DSPy-style metric + trainset BootstrapFewShot teaching stub instead of vibe-only prompt edits',
+      'Implement MCP servers/clients over stdio locally; explain Streamable HTTP remote transports at survey level',
+      'Validate tool outputs with Pydantic structured types (PydanticAI-shaped); live pydantic_ai runtime is optional/out of CI',
+      'Align text-to-SQL with schema tools, read-only execution, and repair loops',
+      'Explain LangGraph-style cyclic state machines and HITL nodes at survey level (no LangGraph code in lab)',
+      'Explain governed browser / computer-use agents (least-privilege tools, a11y observations, HITL writes) at survey level — no Playwright lab'
     ],
     sections: [
       {
         title: '3.1 ReAct Reasoning Loops & DSPy Prompt Optimization',
-        content: `Autonomous agents rely on structured cognitive loops to break down complex goals:
+        content: `Autonomous agents rely on structured cognitive loops to break down complex goals. Lab applies ReAct in the CustomerSuccess HITL path and a DSPy-style teaching stub (not a full online MIPRO search):
 
 - **ReAct Pattern:** Interleaves **Thought** (internal reasoning step), **Action** (calling an external API/tool), and **Observation** (processing tool output) until reaching a final answer.
-- **DSPy Compilation:** Treat prompts as **compiled programs**, not hand-edited strings:
+- **DSPy Compilation (lab stub + survey):** Treat prompts as **compiled programs**, not hand-edited strings:
   - Define a **signature** (inputs/outputs), a **metric** (e.g. exact SQL match, faithfulness), and a small **trainset**.
   - Optimizers such as **BootstrapFewShot** (or MIPRO-style search) select instructions and demonstrations that raise the metric.
   - **Compile once, freeze for prod** — ship the compiled instruction+demos; do not re-optimize on every user request.
@@ -698,11 +727,11 @@ print("dpo", round(dpo_loss(-0.5, -1.5, -1.0, -1.0, beta=0.1), 4))
       },
       {
         title: '3.4 Type-Safe Agents: PydanticAI, LangGraph & Text-to-SQL',
-        content: `Production agent frameworks must enforce strict execution boundaries:
+        content: `Production agent frameworks must enforce strict execution boundaries. **Required Module 3 lab** proves Pydantic-shaped outputs + SQL/MCP + HITL — not a live PydanticAI/LangGraph install in CI:
 
-- **PydanticAI:** Uses Python type hints and Pydantic \`output_type\` schemas. If an LLM returns malformed structured output, PydanticAI can return validation feedback to the model and retry within configured limits.
-- **LangGraph:** Conceptualizes agent workflows as directed cyclic graphs. Essential for multi-agent loops with persistent state checkpoints, branching logic, and human approval gates.
-- **Text-to-SQL topology (aligns with System Design \`bp_sql_agent\`):**
+- **PydanticAI (survey + reference sample):** Uses Python type hints and Pydantic \`output_type\` schemas with validation feedback retries. Lab CI validates the *shape*; live \`Agent\` runs are optional when an API key is present.
+- **LangGraph (survey only):** Directed cyclic graphs with checkpoints, branching, and human approval gates. No LangGraph dependency in the lab.
+- **Text-to-SQL topology (lab; aligns with System Design \`bp_sql_agent\`):**
   1. Schema minimizer / MCP \`get_table_schema\` loads only needed DDL.
   2. Agent emits a typed \`SQLQueryResult\` (explanation + SQL + confidence).
   3. Firewall rejects writes, \`PRAGMA\`, and statement stacking; enforce a query timeout.
@@ -711,7 +740,7 @@ print("dpo", round(dpo_loss(-0.5, -1.5, -1.0, -1.0, beta=0.1), 4))
       },
       {
         title: '3.5 Browser & Computer-Use Agents (Action Spaces, Observation, Governance)',
-        content: `Browser / computer-use agents control a real UI (DOM or OS) instead of only APIs. They still run a ReAct loop, but the **action space** and **observation channel** change the threat model.
+        content: `Browser / computer-use agents control a real UI (DOM or OS) instead of only APIs (survey + System Design simulator — not a required Playwright lab). They still run a ReAct loop, but the **action space** and **observation channel** change the threat model.
 
 **Action Space (least privilege):**
 - Prefer typed tools such as \`navigate\`, \`click\`, \`type\`, \`scroll\`, and \`extract_a11y\` over a raw "execute arbitrary JS" escape hatch.
@@ -761,7 +790,7 @@ async def get_table_schema(ctx: RunContext[str], table_name: str) -> str:
 # Execution triggers automatic schema validation and auto-retry if JSON is malformed
 # result = agent.run_sync("Find total revenue for all users registered in 2026")
 `,
-        explanation: 'PydanticAI guarantees that LLM outputs match the Pydantic schema, automatically executing reflection retries on validation failure.'
+        explanation: 'Reference PydanticAI pattern. Module 3 CI validates structured-output shapes and SQL/MCP firewalls without requiring a live PydanticAI Agent run; optional local demos may use a real model key.'
       },
       {
         id: 'c3_mcp',
@@ -1059,27 +1088,39 @@ print(compiled.render())
     slug: 'applied-ai-system-design',
     tag: 'MODULE 04',
     title: 'Secure Model Serving & Measured Benchmarking',
-    subtitle: 'Inference APIs, PagedAttention, Speculative Decoding & Optional vLLM',
-    description: 'Build a secured inference endpoint, generate concurrent load, measure latency and throughput, enforce regression budgets, connect CPU-verifiable serving mechanics to vLLM architecture, and optionally attach a real OpenAI-compatible vLLM engine behind ACADEMY_GPU=1.',
+    subtitle: 'Secure FastAPI Serving, Speculative Math & Optional vLLM',
+    description: 'Build a secured FastAPI inference endpoint, measure CPU latency/throughput budgets, and compute speculative-decoding teaching math. Survey PagedAttention, FlowKV, and Dual-LLM topologies; optional OpenAI-compatible vLLM wiring requires ACADEMY_GPU=1.',
     estimatedHours: 20,
     prerequisites: ['Module 1-3', 'Distributed Systems basics', 'Virtual Memory concepts'],
     competencyContract: {
-      explain: ['TTFT, ITL, throughput, continuous batching, PagedAttention, and speculative decoding', 'Prefill/decode separation, caching, and chat/browser/SQL agent topologies', 'Indirect prompt injection, privilege boundaries, and when the optional vLLM adapter is claim-safe'],
-      buildAndDebug: ['Run the authenticated FastAPI inference endpoint under concurrent load', 'Measure p50/p95/p99 latency and throughput with regression budgets', 'Estimate speculative-decoding acceptance length / teaching speedup; wire InferenceEngine to vLLM only when ACADEMY_GPU=1'],
-      evidenceRequired: ['Passing serving/security tests', 'Measured benchmark JSON (CPU engine by default; not GPU/vLLM)', 'Evidence artifact with claims.gpu_used/vllm_measured false unless a live GPU path was measured']
+      explain: [
+        'TTFT, ITL, throughput, continuous batching, and speculative-decoding acceptance math; PagedAttention and FlowKV/disaggregated prefill-decode at survey level (not implemented in lab)',
+        'Caching and chat/browser/SQL agent topologies; Dual-LLM / privilege-separation patterns as theory/sandbox — not wired into service.py',
+        'Indirect prompt injection and serving privilege boundaries; when the optional vLLM adapter is claim-safe'
+      ],
+      buildAndDebug: [
+        'Run the authenticated FastAPI inference endpoint with rate limits and timeouts under concurrent CPU load',
+        'Measure p50/p95/p99 latency and throughput with regression budgets',
+        'Compute speculative-decoding teaching math (draft/target, γ, acceptance); attach InferenceEngine → vLLM only when ACADEMY_GPU=1'
+      ],
+      evidenceRequired: [
+        'Passing serving/security tests (auth, rate, timeout, bench)',
+        'Measured benchmark JSON from the CPU engine by default (not GPU/vLLM unless measured)',
+        'Evidence artifact with claims.gpu_used/vllm_measured false unless a live GPU path was measured'
+      ]
     },
     objectives: [
-      'Deconstruct vLLM PagedAttention virtual memory block allocation to eliminate KV cache fragmentation',
-      'Evaluate supported block sizes for a specific vLLM version, model kernel, and accelerator',
-      'Architect Disaggregated Prefill & Decode GPU clusters with FlowKV RDMA streaming',
-      'Implement production serving boundaries: authentication, request limits, timeouts, concurrency control, rate limiting, and measurable performance gates',
-      'Explain speculative decoding (draft/target, γ, acceptance) and when it helps memory-bound decode',
-      'Use the optional GPU track (ACADEMY_ENGINE=vllm + OpenAICompatEngine) only on CUDA hosts without mislabeling CPU evidence'
+      'Explain at survey level vLLM PagedAttention block allocation and continuous batching (lab does not implement PagedAttention)',
+      'Explain supported block-size tradeoffs and why they depend on vLLM version, kernel, and accelerator (survey; no required live kernel sweep)',
+      'Explain disaggregated prefill/decode and FlowKV-style RDMA ideas at survey level (not an architecture deliverable in lab)',
+      'Implement production serving boundaries on FastAPI: authentication, request limits, timeouts, concurrency control, rate limiting, and measurable CPU performance gates',
+      'Explain speculative decoding (draft/target, γ, acceptance) with teaching math; when it helps memory-bound decode',
+      'Use the optional GPU track (ACADEMY_ENGINE=vllm + OpenAICompatEngine) only on CUDA hosts without mislabeling CPU evidence; treat Dual-LLM sandbox patterns as theory, not wired service behavior'
     ],
     sections: [
       {
         title: '4.1 vLLM PagedAttention & Continuous Batching',
-        content: `Standard PyTorch inference wastes up to 60-80% of GPU memory due to static allocation for maximum sequence length.
+        content: `Standard PyTorch inference wastes up to 60-80% of GPU memory due to static allocation for maximum sequence length. **Competency here is survey** — required Module 4 lab uses a CPU deterministic engine + secured FastAPI; optional vLLM needs \`ACADEMY_GPU=1\`.
 
 **PagedAttention Solution:**
 - Inspired by OS virtual memory, PagedAttention breaks the KV cache into fixed-size physical blocks allocated dynamically on demand.
@@ -1090,20 +1131,20 @@ print(compiled.render())
       },
       {
         title: '4.2 Disaggregated Prefill & Decode Architecture',
-        content: `LLM inference consists of two distinct computational phases:
+        content: `LLM inference consists of two distinct computational phases (survey — not a Module 4 lab architecture deliverable):
 1. **Prefill Phase:** Computes prompt tokens in parallel. Compute-bound (high FLOPs).
 2. **Decode Phase:** Generates tokens sequentially one by one. Memory-bandwidth bound.
 
 **Disaggregation:**
 - Isolates Prefill and Decode workloads onto dedicated GPU clusters.
 - Can reduce Inter-Token Latency (ITL) interference caused by large prompt prefills interrupting ongoing decode loops.
-- Transfers KV cache across nodes via high-speed RDMA / FlowKV networks.`
+- Transfers KV cache across nodes via high-speed RDMA / FlowKV-style networks. Explain the idea; do not claim a built FlowKV cluster.`
       },
       {
         title: '4.3 Security: Defending Against Indirect Prompt Injection (IPI)',
-        content: `Indirect Prompt Injection (IPI) occurs when an agent ingests untrusted external data (web pages, user emails, vector DB results) containing malicious embedded instructions.
+        content: `Indirect Prompt Injection (IPI) occurs when an agent ingests untrusted external data (web pages, user emails, vector DB results) containing malicious embedded instructions. Lab includes a weak heuristic sanitizer baseline; a full Dual-LLM service path is survey-level unless you wire one yourself.
 
-**Dual-LLM Firewall Architecture:**
+**Dual-LLM Firewall Architecture (survey pattern):**
 - **Privileged Primary Agent:** Has access to system tools and user credentials, but NEVER reads untrusted raw external data directly.
 - **Tool-Input Firewall (Minimizer):** Intercepts tool parameters and strips away PII/unneeded fields before calling backend APIs.
 - **Tool-Output Firewall (Sanitizer):** A quarantined, low-privilege model that reads untrusted raw external content, summarizes/sanitizes it, and returns safe structured text to the primary agent.`
@@ -1127,7 +1168,7 @@ print(compiled.render())
     codeExamples: [
       {
         id: 'c4_vllm',
-        title: 'High-Throughput vLLM Server Setup',
+        title: 'High-Throughput vLLM Server Setup (Optional Track Reference)',
         language: 'bash',
         filename: 'start_vllm.sh',
         code: `# Launch vLLM OpenAI-Compatible API Server with PagedAttention
@@ -1359,19 +1400,31 @@ print("teaching speedup", round(speculative_speedup(5, 0.7, 0.2, 1.0), 3))
     tag: 'MODULE 05',
     title: 'Cloud Deployment, Evaluation & Productionization',
     subtitle: 'EDD Gates, DeepEval/Promptfoo Tracks & HF/Render Plans',
-    description: 'Productionize AI systems with immutable model versions, offline evaluation gates, optional DeepEval/Promptfoo tracks, staged Azure/Databricks/HF/Render deployment plans, operational telemetry, and tested rollback — without false cloud-deploy claims in CI.',
+    description: 'Practice a release control plane with offline EDD gates, canary promotion, rollback, and claim-safe provider plans (HF/Render/Azure/Databricks). Optional DeepEval/Promptfoo/deploy tracks are opt-in; OpenTelemetry and required G-Eval are survey-level, not CI deliverables.',
     estimatedHours: 16,
     prerequisites: ['Module 1-4', 'Docker', 'CI/CD concepts'],
     competencyContract: {
-      explain: ['CI/CD evaluation gates (offline EDD vs optional DeepEval/Promptfoo)', 'Autoscaling signals, rollout/rollback, and observability', 'Model/data drift, cost controls, SLOs, and claim-safe HF/Render/Azure/Databricks plans'],
-      buildAndDebug: ['Run local faithfulness/relevancy/safety/latency gates without cloud credentials', 'Promote candidate → canary → production with an append-only audit trail', 'Emit Promptfoo/DeepEval/HF/Render plans; optionally execute gated live tracks without mislabeling CI evidence'],
-      evidenceRequired: ['Passing operations tests (including offline eval/deploy adapters)', 'Evidence JSON with gates, telemetry, provider plans, and claims.*_deployed/executed false by default', 'Runbook confirming no false cloud-deployment claims']
+      explain: [
+        'CI/CD evaluation gates: required offline EDD versus optional DeepEval/Promptfoo tracks; G-Eval / LLM-as-judge mechanics at survey level (not required in lab)',
+        'Rollout/rollback and release control-plane promotion; autoscaling signals and observability concepts at survey level (no OpenTelemetry requirement)',
+        'Model/data drift, cost controls, SLOs, and claim-safe HF/Render plans; Azure AI Foundry and Databricks as plan-only mappings unless explicitly gated live deploy'
+      ],
+      buildAndDebug: [
+        'Run local faithfulness/relevancy/safety/latency offline EDD gates without cloud credentials or judge APIs',
+        'Promote candidate → canary → production through the release control plane with an append-only audit trail and tested rollback',
+        'Emit provider deploy plans (HF/Render/Azure/Databricks); optionally execute gated DeepEval/Promptfoo/deploy tracks without mislabeling CI evidence'
+      ],
+      evidenceRequired: [
+        'Passing operations tests (offline eval + deploy adapters)',
+        'Evidence JSON with gates, provider plans, release audit trail, and claims.*_deployed/executed false by default',
+        'Runbook confirming no false cloud-deployment, OpenTelemetry, or G-Eval-executed claims'
+      ]
     },
     objectives: [
-      'Build required offline EDD gates that feed the release control plane without LLM judges',
-      'Describe and optionally run DeepEval / Promptfoo tracks when ACADEMY_EVAL / ACADEMY_PROMPTFOO are set',
-      'Map immutable model releases to Azure AI Foundry, Databricks, Hugging Face, and Render plans (live deploy only when ACADEMY_DEPLOY=1)',
-      'Capture latency, errors, quality, drift, token use, and cost telemetry and execute a tested rollback'
+      'Build required offline EDD gates that feed the release control plane without LLM judges or G-Eval',
+      'Describe and optionally run DeepEval / Promptfoo tracks when ACADEMY_EVAL / ACADEMY_PROMPTFOO are set (never required for CI evidence)',
+      'Map immutable model releases to HF/Render plans and Azure/Databricks plan-only stubs (live deploy only when ACADEMY_DEPLOY=1 and claims stay honest)',
+      'Execute a tested rollback via the release control plane; explain latency/error/quality/drift/cost telemetry and OpenTelemetry-style observability at survey level (lab does not require OTel instrumentation)'
     ],
     sections: [
       {
@@ -1400,9 +1453,9 @@ print("teaching speedup", round(speculative_speedup(5, 0.7, 0.2, 1.0), 3))
       },
       {
         title: '5.3 Observability & Infrastructure Monitoring',
-        content: `Production AI telemetry requires tracing non-deterministic multi-step loops:
+        content: `Production AI telemetry requires tracing non-deterministic multi-step loops (survey — Module 5 lab practices release-control signals and offline EDD gates, not a required OpenTelemetry install):
 
-- **OpenTelemetry Tracing:** Tracking step latency, token consumption, and tool input/outputs per user session.
+- **OpenTelemetry Tracing (survey):** Tracking step latency, token consumption, and tool input/outputs per user session — understand the pattern; do not claim OTel instrumentation from the lab alone.
 - **KV Cache Saturation Metrics:** Monitoring GPU memory utilization to trigger Horizontal Pod Autoscaler (HPA) before OOM cascading failures occur.`
       },
       {
@@ -1422,7 +1475,7 @@ Never set \`claims.*_deployed=true\` unless the live API succeeded and returned 
     codeExamples: [
       {
         id: 'c5_deepeval',
-        title: 'DeepEval Pytest Test Suite',
+        title: 'DeepEval Pytest Test Suite (Optional Track)',
         language: 'python',
         filename: 'tests/test_agent_eval.py',
         code: `import pytest
