@@ -10,9 +10,10 @@ DeepEval / Promptfoo / Hugging Face / Render tracks are opt-in and claim-gated.
 - offline EDD helpers (`app/eval_offline.py`) feeding faithfulness/relevancy/safety/latency/reliability gates
 - Promptfoo-shaped plan validation (`app/promptfoo_plan.py`) without Node in CI
 - candidate → canary → production promotion with an append-only audit trail
+- **bad-canary lab** (`app/canary_lab.py`): degraded canary window → block production → `reject_canary` (retire) without changing `active`
 - telemetry summaries + SLO/quality alerts and tested rollback
 - Azure AI Foundry / Databricks / **Hugging Face** / **Render** deployment plans
-- honest evidence claims (`*_deployed` / `*_executed` false by default)
+- honest evidence claims (`*_deployed` / `*_executed` / `cloud_canary` false by default)
 
 ## Run (required)
 
@@ -23,9 +24,10 @@ source .venv/bin/activate
 pip install -r requirements.txt
 pytest -q
 python -m app.evidence --output artifacts/evidence.json
+python -m app.canary_lab --mode quality_regression
 ```
 
-Expected: **24 passed**
+Expected: **31 passed**
 
 ## Optional tracks (never enable in Cloud Agent / default CI)
 
@@ -45,5 +47,5 @@ calls when credentials are present. Never embed secrets in evidence JSON.
 ## Assessment rubric (100 points)
 
 Immutable registry, artifact integrity, offline evaluation, optional-tool honesty,
-promotion gates, canary sequencing, telemetry, alerts, audited rollback, truthful
-provider claims.
+promotion gates, canary sequencing, bad-canary reject/retire, telemetry, alerts,
+audited rollback, truthful provider claims.

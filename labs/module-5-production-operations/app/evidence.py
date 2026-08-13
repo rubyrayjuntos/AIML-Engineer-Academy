@@ -10,6 +10,7 @@ import json
 import platform
 from pathlib import Path
 
+from app.canary_lab import run_bad_canary_scenario
 from app.deepeval_optional import build_deepeval_plan, maybe_run_deepeval
 from app.deploy_optional import build_deploy_plan
 from app.eval_offline import evaluation_from_case
@@ -56,6 +57,12 @@ def generate(output: Path) -> dict:
     deepeval_plan = maybe_run_deepeval(build_deepeval_plan())
     promptfoo = build_promptfoo_plan()
 
+    bad_canary_path = output.parent / "bad-canary-state.json"
+    if bad_canary_path.exists():
+        bad_canary_path.unlink()
+    bad_canary_store = ReleaseStore(bad_canary_path)
+    bad_canary = run_bad_canary_scenario(bad_canary_store, mode="quality_regression")
+
     report = {
         "environment": {
             "python": platform.python_version(),
@@ -66,6 +73,15 @@ def generate(output: Path) -> dict:
         "offline_edd": offline_eval.__dict__,
         "telemetry": telemetry,
         "alerts": alerts(telemetry),
+        "bad_canary": {
+            "mode": bad_canary["mode"],
+            "promotion_blocked": bad_canary["promotion_blocked"],
+            "canary_stage": bad_canary["canary_stage"],
+            "active_kept": bad_canary["active"],
+            "gates_passed": bad_canary["gates_passed"],
+            "entrypoint": "python -m app.canary_lab --mode quality_regression",
+            "claims": bad_canary["claims"],
+        },
         "provider_plans": [
             deployment_plan("azure-ai-foundry", model.artifact_uri, "staging"),
             deployment_plan("databricks", model.artifact_uri, "staging"),
@@ -99,6 +115,9 @@ def generate(output: Path) -> dict:
             "deepeval_executed": bool(deepeval_plan["claims"]["deepeval_executed"]),
             "promptfoo_executed": False,
             "credentials_required": False,
+            "cloud_canary": False,
+            "production_promoted_bad_canary": False,
+            "canary_rejected": bool(bad_canary["claims"]["canary_rejected"]),
         },
     }
     canonical = json.dumps(report, sort_keys=True).encode()
