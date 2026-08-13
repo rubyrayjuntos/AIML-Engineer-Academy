@@ -3,11 +3,12 @@
 ## Release
 
 1. Register an immutable artifact URI, version, and SHA-256 digest.
-2. Run offline quality, safety, latency, and reliability evaluation.
-3. Block the release if any gate fails; preserve the failed gate event.
-4. Deploy to staging/canary using workload identity and record the provider deployment ID.
-5. Observe error rate, p95 latency, quality, drift, tokens, and cost through the canary window.
-6. Require human approval before production promotion.
+2. Run offline quality, safety, latency, and reliability evaluation (`app/eval_offline.py` + gates).
+3. Optionally run DeepEval / Promptfoo only when `ACADEMY_EVAL` / `ACADEMY_PROMPTFOO` are set — never claim them from the offline job.
+4. Block the release if any gate fails; preserve the failed gate event.
+5. Emit Azure/Databricks/HF/Render plans; live HF/Render only with `ACADEMY_DEPLOY=1` + credentials.
+6. Observe error rate, p95 latency, quality, drift, tokens, and cost through the canary window.
+7. Require human approval before production promotion.
 
 ## Rollback
 

@@ -1,0 +1,4 @@
+# Optional deploy HTTP helpers (stdlib urllib works for gated calls).
+# Prefer dedicated env if you add heavy SDKs later.
+httpx>=0.28.0
+huggingface_hub>=0.23.0

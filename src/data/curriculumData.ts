@@ -1302,19 +1302,19 @@ print("teaching speedup", round(speculative_speedup(5, 0.7, 0.2, 1.0), 3))
     slug: 'cloud-deployment-evaluations',
     tag: 'MODULE 05',
     title: 'Cloud Deployment, Evaluation & Productionization',
-    subtitle: 'Evaluation-Driven Development (EDD), CI/CD & Observability',
-    description: 'Productionize AI systems with immutable model versions, evaluation gates, staged Azure AI Foundry and Databricks release plans, operational telemetry, and tested rollback.',
-    estimatedHours: 14,
+    subtitle: 'EDD Gates, DeepEval/Promptfoo Tracks & HF/Render Plans',
+    description: 'Productionize AI systems with immutable model versions, offline evaluation gates, optional DeepEval/Promptfoo tracks, staged Azure/Databricks/HF/Render deployment plans, operational telemetry, and tested rollback — without false cloud-deploy claims in CI.',
+    estimatedHours: 16,
     prerequisites: ['Module 1-4', 'Docker', 'CI/CD concepts'],
     competencyContract: {
-      explain: ['CI/CD evaluation gates and Kubernetes/serverless tradeoffs', 'Autoscaling signals, rollout/rollback, and observability', 'Model/data drift, cost controls, and SLOs'],
-      buildAndDebug: ['Run local faithfulness/relevancy/safety/latency gates without cloud credentials', 'Promote candidate → canary → production with an append-only audit trail', 'Exercise telemetry alerts and a state-restoring rollback; export provider deployment plans'],
-      evidenceRequired: ['Passing operations tests', 'Evidence JSON with gates, telemetry, and provider plans', 'Runbook confirming no false cloud-deployment claims']
+      explain: ['CI/CD evaluation gates (offline EDD vs optional DeepEval/Promptfoo)', 'Autoscaling signals, rollout/rollback, and observability', 'Model/data drift, cost controls, SLOs, and claim-safe HF/Render/Azure/Databricks plans'],
+      buildAndDebug: ['Run local faithfulness/relevancy/safety/latency gates without cloud credentials', 'Promote candidate → canary → production with an append-only audit trail', 'Emit Promptfoo/DeepEval/HF/Render plans; optionally execute gated live tracks without mislabeling CI evidence'],
+      evidenceRequired: ['Passing operations tests (including offline eval/deploy adapters)', 'Evidence JSON with gates, telemetry, provider plans, and claims.*_deployed/executed false by default', 'Runbook confirming no false cloud-deployment claims']
     },
     objectives: [
-      'Implement Evaluation-Driven Development (EDD) pipelines using DeepEval and Promptfoo',
-      'Construct LLM-as-a-judge evaluation metrics (Faithfulness, Contextual Relevancy, G-Eval)',
-      'Map immutable model releases to Azure AI Foundry and Databricks serving endpoints using workload identity',
+      'Build required offline EDD gates that feed the release control plane without LLM judges',
+      'Describe and optionally run DeepEval / Promptfoo tracks when ACADEMY_EVAL / ACADEMY_PROMPTFOO are set',
+      'Map immutable model releases to Azure AI Foundry, Databricks, Hugging Face, and Render plans (live deploy only when ACADEMY_DEPLOY=1)',
       'Capture latency, errors, quality, drift, token use, and cost telemetry and execute a tested rollback'
     ],
     sections: [
@@ -1322,10 +1322,14 @@ print("teaching speedup", round(speculative_speedup(5, 0.7, 0.2, 1.0), 3))
         title: '5.1 Evaluation-Driven Development (EDD)',
         content: `Manual "vibe checking" fails in production. AI Engineers embed automated evaluation suites directly into Git PR checks:
 
-**Evaluation Tool Matrix:**
-- **DeepEval:** Pytest-native Python testing framework for quantitative metrics (Faithfulness, Answer Relevancy, Hallucination, Tool Accuracy).
-- **Ragas:** Reference-less evaluation specialized for RAG pipelines (Context Precision, Context Recall).
-- **Promptfoo:** YAML-based CLI tool for side-by-side prompt regression benchmarking and automated security red-teaming.`
+**Required path (this lab / CI):**
+- Deterministic faithfulness / relevancy / safety / latency / reliability gates on \`Evaluation\` rows (\`app/eval_offline.py\` + \`evaluate_gates\`).
+- No judge API keys required; evidence must not claim DeepEval/Promptfoo executed.
+
+**Optional tracks (local / paid CI only):**
+- **DeepEval:** Pytest-native metrics behind \`ACADEMY_EVAL=1\` + judge key (\`python -m app.deepeval_optional\`).
+- **Promptfoo:** YAML suite in \`promptfoo/promptfooconfig.yaml\` via \`scripts/run_promptfoo_optional.sh\` when \`ACADEMY_PROMPTFOO=1\`.
+- **Ragas:** Reference-less RAG metrics (curriculum concept; wire similarly when you adopt it).`
       },
       {
         title: '5.2 LLM-as-a-Judge & G-Eval Mechanics',
@@ -1334,7 +1338,9 @@ print("teaching speedup", round(speculative_speedup(5, 0.7, 0.2, 1.0), 3))
 **G-Eval Steps:**
 1. Input evaluation criteria and rubric weights.
 2. The judge model generates detailed reasoning steps evaluating the candidate answer against context.
-3. Output a normalized quantitative score [0.0 - 1.0] with structured JSON reasoning.`
+3. Output a normalized quantitative score [0.0 - 1.0] with structured JSON reasoning.
+
+**Honesty rule:** LLM-as-a-judge scores are workload- and judge-model-specific. The Module 5 required path uses offline overlap heuristics to exercise gates; optional DeepEval flips \`claims.deepeval_executed\` only after a real \`assert_test\` run.`
       },
       {
         title: '5.3 Observability & Infrastructure Monitoring',
@@ -1342,6 +1348,19 @@ print("teaching speedup", round(speculative_speedup(5, 0.7, 0.2, 1.0), 3))
 
 - **OpenTelemetry Tracing:** Tracking step latency, token consumption, and tool input/outputs per user session.
 - **KV Cache Saturation Metrics:** Monitoring GPU memory utilization to trigger Horizontal Pod Autoscaler (HPA) before OOM cascading failures occur.`
+      },
+      {
+        title: '5.4 Deploy Paths: Azure, Databricks, Hugging Face & Render',
+        content: `Release control planes should emit **provider plans** before any paid API call:
+
+| Provider | Lab default | Live path |
+| :--- | :--- | :--- |
+| Azure AI Foundry | Plan only (\`managed-online-endpoint\` + managed identity) | Operator-owned SDK outside CI |
+| Databricks | Plan only (\`model-serving-endpoint\` + service principal) | Operator-owned SDK outside CI |
+| **Hugging Face** | Plan (\`inference-endpoint\`) | \`ACADEMY_DEPLOY=1\` + \`HF_TOKEN\` via \`app.deploy_optional\` |
+| **Render** | Plan (\`web-service\`) | \`ACADEMY_DEPLOY=1\` + \`RENDER_API_KEY\` |
+
+Never set \`claims.*_deployed=true\` unless the live API succeeded and returned a deployment id. Cloud Agents leave deploy flags unset.`
       }
     ],
     codeExamples: [
@@ -1373,7 +1392,30 @@ def test_agent_faithfulness():
     # 4. Assert Test Pass/Fail in CI/CD Pipeline
     assert_test(test_case, [faithfulness_metric])
 `,
-        explanation: 'Runs automated CI/CD unit testing measuring faithfulness of agent outputs against retrieved context.'
+        explanation: 'Optional-track DeepEval sample (requires deepeval + judge key). Module 5 CI uses offline eval helpers; run python -m app.deepeval_optional only with ACADEMY_EVAL=1.'
+      },
+      {
+        id: 'c5_promptfoo',
+        title: 'Promptfoo Config Skeleton',
+        language: 'yaml',
+        filename: 'promptfoo/promptfooconfig.yaml',
+        code: `description: Academy Module 5 optional Promptfoo suite
+providers:
+  - openai:gpt-4o-mini
+prompts:
+  - |
+    Answer using only the provided context.
+    Context: {{context}}
+    Question: {{question}}
+tests:
+  - vars:
+      question: When does customer #101 subscription expire?
+      context: Customer #101 has an active subscription expiring on 2026-12-31.
+    assert:
+      - type: contains
+        value: "2026"
+`,
+        explanation: 'Ships with the lab as a plan artifact. Execute via scripts/run_promptfoo_optional.sh when ACADEMY_PROMPTFOO=1 — not in default CI.'
       },
       {
         id: 'c5_github_actions',
@@ -1383,44 +1425,36 @@ def test_agent_faithfulness():
         code: `name: AI Agent CI/CD Evaluation Gate
 
 on:
-  push:
-    branches: [ main ]
   pull_request:
     branches: [ main ]
 
 jobs:
-  evaluate_agent:
+  offline_gates:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          
-      - name: Install Evaluation Dependencies
+      - name: Required Module 5 control plane
         run: |
-          pip install deepeval pytest fastapi
-          
-      - name: Run DeepEval Metric Regression Suite
-        env:
-          XAI_API_KEY: \${{ secrets.XAI_API_KEY }}
-        run: |
-          pytest tests/test_agent_eval.py -v
+          cd labs/module-5-production-operations
+          pip install -r requirements.txt
+          pytest -q
+      # Optional DeepEval job (separate, secrets-gated) — never claim it ran in the offline job.
 `,
-        explanation: 'Automates evaluation test suites on every pull request to block regressions.'
+        explanation: 'Keeps the required offline control plane green; optional DeepEval/Promptfoo belong in secrets-gated jobs, not the default acceptance path.'
       }
     ],
     lab: {
       id: 'lab5',
-      title: 'Production Release, Observability & Rollback',
+      title: 'Production Release, Offline EDD & Optional Eval/Deploy Tracks',
       environment: 'Local Python',
       workspacePath: 'labs/module-5-production-operations',
       instructions: [
-        'Run the deterministic release, telemetry, provider-plan, and rollback tests.',
+        'Run the deterministic release, telemetry, offline eval, provider-plan, and rollback tests.',
         'Generate machine-readable evidence without cloud credentials or false deployment claims.',
-        'Inspect the runbook, then map the approved release to Azure AI Foundry or Databricks using workload identity.'
+        'Optionally (local only): ACADEMY_EVAL / ACADEMY_PROMPTFOO / ACADEMY_DEPLOY tracks for DeepEval, Promptfoo, HF, or Render.'
       ],
       validationCommands: [
         'cd labs/module-5-production-operations',
@@ -1429,29 +1463,28 @@ jobs:
         'pytest -q',
         'python -m app.evidence --output artifacts/evidence.json'
       ],
-      expectedOutput: '17 passed; evidence records passing gates, telemetry, provider plans, and no cloud-deployment claim.',
+      expectedOutput: '24 passed; evidence records gates, telemetry, Azure/Databricks/HF/Render plans, and claims.*_deployed/executed false by default.',
       starterCode: {
         id: 'lab5_starter',
-        title: 'Release Gate Evaluator',
+        title: 'Offline EDD + Provider Plan Smoke',
         language: 'python',
-        filename: 'release_gate.py',
-        code: `def release_gates(metrics):
-    return {
-        "faithfulness": metrics["faithfulness"] >= 0.90,
-        "safety": metrics["safety"] >= 0.98,
-        "latency": metrics["p95_ms"] <= 750,
-        "reliability": metrics["error_rate"] <= 0.01,
-    }
+        filename: 'labs/module-5-production-operations/app/eval_offline.py',
+        code: `from app.eval_offline import evaluation_from_case
+from app.promptfoo_plan import build_promptfoo_plan, validate_promptfoo_plan
+from app.providers import deployment_plan
+from app.release import evaluate_gates
 
-results = release_gates({
-    "faithfulness": 0.94,
-    "safety": 0.99,
-    "p95_ms": 220,
-    "error_rate": 0.0,
-})
-assert all(results.values())
+metrics = evaluation_from_case(
+    "When does customer 101 subscription expire?",
+    "Customer 101 subscription expires 2026-12-31.",
+    "Customer 101 has an active subscription expiring on 2026-12-31.",
+)
+print(evaluate_gates(metrics))
+plan = build_promptfoo_plan()
+validate_promptfoo_plan(plan)
+print(deployment_plan("huggingface", "models:/risk/1", "staging")["resource"])
 `,
-        explanation: 'Uses explicit quality and operational thresholds to block unsafe or regressed releases before canary promotion.'
+        explanation: 'Smoke-checks offline EDD metrics, Promptfoo plan shape, and HF deploy plan without claiming live cloud execution.'
       }
     },
     quizzes: [
@@ -1506,6 +1539,32 @@ assert all(results.values())
         answerIndex: 1,
         explanation: 'Rollback is a control-plane action: restore the last good version and record who/what/when.',
         concept: 'Rollback'
+      },
+      {
+        id: 'q5_5',
+        question: 'When may Module 5 evidence set claims.deepeval_executed=true?',
+        options: [
+          'Whenever deepeval appears in a curriculum code sample',
+          'Only after a gated live DeepEval assert_test run under ACADEMY_EVAL=1 with a judge key',
+          'Whenever offline token-overlap faithfulness is above 0.5',
+          'Automatically on every pytest run in CI'
+        ],
+        answerIndex: 1,
+        explanation: 'Offline EDD helpers exercise gates without claiming DeepEval. The optional track flips the claim only after a real execution.',
+        concept: 'Eval Claim Honesty'
+      },
+      {
+        id: 'q5_6',
+        question: 'Which statement about Hugging Face / Render in this lab is correct?',
+        options: [
+          'CI always deploys both providers and sets claims.*_deployed=true',
+          'Plans are always available offline; live deploy requires ACADEMY_DEPLOY=1 plus provider credentials and only then may flip deployed claims',
+          'Render replaces rollback for production incidents',
+          'Hugging Face plans require embedding the HF token in evidence.json'
+        ],
+        answerIndex: 1,
+        explanation: 'Same honesty pattern as the GPU track: plans offline, live calls opt-in, claims follow API success.',
+        concept: 'Deploy Claim Honesty'
       }
     ],
     flashcards: [
@@ -1513,8 +1572,8 @@ assert all(results.values())
         id: 'fc5_1',
         term: 'Evaluation-Driven Development (EDD)',
         category: 'Production Ops',
-        definition: 'A practice of building automated quantitative evaluation test suites (DeepEval/Promptfoo) into CI/CD gates to continuously benchmark LLM outputs.',
-        keyTakeaway: 'Replaces subjective manual vibe-checking with deterministic engineering benchmarks.'
+        definition: 'A practice of building automated quantitative evaluation suites into CI/CD gates. Required Module 5 path uses offline metrics; DeepEval/Promptfoo are optional keyed tracks.',
+        keyTakeaway: 'Replace vibe checks with gates — and never claim a tool ran if CI only exercised stubs.'
       },
       {
         id: 'fc5_2',
@@ -1522,6 +1581,20 @@ assert all(results.values())
         category: 'Evaluation',
         definition: 'Using a highly capable foundation model guided by detailed rubrics to grade outputs of smaller production models.',
         keyTakeaway: 'Provides automated, scalable qualitative and factual correctness scoring.'
+      },
+      {
+        id: 'fc5_3',
+        term: 'Promptfoo Plan',
+        category: 'Evaluation',
+        definition: 'A YAML config of providers, prompts, and asserts used for regression and red-teaming; the lab ships a plan artifact and an optional npx runner.',
+        keyTakeaway: 'Validate the plan shape in CI; execute Promptfoo only when ACADEMY_PROMPTFOO=1.'
+      },
+      {
+        id: 'fc5_4',
+        term: 'HF / Render Deploy Plan',
+        category: 'Deployment',
+        definition: 'Credential-free deployment descriptors for Hugging Face inference endpoints and Render web services, with optional live API calls behind ACADEMY_DEPLOY=1.',
+        keyTakeaway: 'Azure/Databricks stay plan-only here; HF/Render can go live when gated and must update claims honestly.'
       }
     ]
   }
