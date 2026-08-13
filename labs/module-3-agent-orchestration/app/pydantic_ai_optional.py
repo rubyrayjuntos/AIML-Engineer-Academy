@@ -76,16 +76,16 @@ def build_live_structured_plan(
 
 def _openai_compatible_model(model_id: str, provider: str, api_key: str):
     """Build a pydantic-ai model for xAI or OpenAI (OpenAI-compatible HTTP)."""
-    from pydantic_ai.models.openai import OpenAIModel
+    from pydantic_ai.models.openai import OpenAIChatModel
     from pydantic_ai.providers.openai import OpenAIProvider
 
     if provider == "xai":
         base_url = os.getenv("XAI_BASE_URL", "https://api.x.ai/v1").rstrip("/")
-        return OpenAIModel(
+        return OpenAIChatModel(
             model_id,
             provider=OpenAIProvider(base_url=base_url, api_key=api_key),
         )
-    return OpenAIModel(model_id, provider=OpenAIProvider(api_key=api_key))
+    return OpenAIChatModel(model_id, provider=OpenAIProvider(api_key=api_key))
 
 
 def propose_sql_live(
