@@ -1466,17 +1466,18 @@ print("teaching speedup", round(speculative_speedup(5, 0.7, 0.2, 1.0), 3))
     competencyContract: {
       explain: [
         'CI/CD evaluation gates: required offline EDD versus optional DeepEval/Promptfoo tracks; G-Eval / LLM-as-judge mechanics at survey level (not required in lab)',
-        'Rollout/rollback and release control-plane promotion; autoscaling signals and observability concepts at survey level (no OpenTelemetry requirement)',
+        'Rollout/rollback, bad-canary reject, and release control-plane promotion; autoscaling signals and observability concepts at survey level (no OpenTelemetry requirement)',
         'Model/data drift, cost controls, SLOs, and claim-safe HF/Render plans; Azure AI Foundry and Databricks as plan-only mappings unless explicitly gated live deploy'
       ],
       buildAndDebug: [
         'Run local faithfulness/relevancy/safety/latency offline EDD gates without cloud credentials or judge APIs',
         'Promote candidate → canary → production through the release control plane with an append-only audit trail and tested rollback',
+        'Detect a degraded canary window, block production, and reject/retire the canary without touching active production',
         'Emit provider deploy plans (HF/Render/Azure/Databricks); optionally execute gated DeepEval/Promptfoo/deploy tracks without mislabeling CI evidence'
       ],
       evidenceRequired: [
-        'Passing operations tests (offline eval + deploy adapters)',
-        'Evidence JSON with gates, provider plans, release audit trail, and claims.*_deployed/executed false by default',
+        'Passing operations + bad-canary tests (offline eval + deploy adapters)',
+        'Evidence JSON with gates, telemetry, bad_canary reject path, provider plans, release audit trail, and claims.*_deployed/executed/cloud_canary false by default',
         'Runbook confirming no false cloud-deployment, OpenTelemetry, or G-Eval-executed claims'
       ]
     },
@@ -1484,7 +1485,7 @@ print("teaching speedup", round(speculative_speedup(5, 0.7, 0.2, 1.0), 3))
       'Build required offline EDD gates that feed the release control plane without LLM judges or G-Eval',
       'Describe and optionally run DeepEval / Promptfoo tracks when ACADEMY_EVAL / ACADEMY_PROMPTFOO are set (never required for CI evidence)',
       'Map immutable model releases to HF/Render plans and Azure/Databricks plan-only stubs (live deploy only when ACADEMY_DEPLOY=1 and claims stay honest)',
-      'Execute a tested rollback via the release control plane; explain latency/error/quality/drift/cost telemetry and OpenTelemetry-style observability at survey level (lab does not require OTel instrumentation)'
+      'Reject a bad canary or execute a tested rollback via the release control plane; explain latency/error/quality/drift/cost telemetry and OpenTelemetry-style observability at survey level (lab does not require OTel instrumentation)'
     ],
     sections: [
       {
@@ -1516,7 +1517,8 @@ print("teaching speedup", round(speculative_speedup(5, 0.7, 0.2, 1.0), 3))
         content: `Production AI telemetry requires tracing non-deterministic multi-step loops (survey — Module 5 lab practices release-control signals and offline EDD gates, not a required OpenTelemetry install):
 
 - **OpenTelemetry Tracing (survey):** Tracking step latency, token consumption, and tool input/outputs per user session — understand the pattern; do not claim OTel instrumentation from the lab alone.
-- **KV Cache Saturation Metrics:** Monitoring GPU memory utilization to trigger Horizontal Pod Autoscaler (HPA) before OOM cascading failures occur.`
+- **KV Cache Saturation Metrics:** Monitoring GPU memory utilization to trigger Horizontal Pod Autoscaler (HPA) before OOM cascading failures occur.
+- **Bad canary window:** After a healthy ship to canary, a later observation window can fail absolute or delta gates (quality / latency / safety). Block production promotion, \`reject_canary\` (retire), keep \`active\` on the known-good version, and leave \`claims.cloud_canary=false\` unless a real cloud canary ran. Lab entry: \`python -m app.canary_lab\`.`
       },
       {
         title: '5.4 Deploy Paths: Azure, Databricks, Hugging Face & Render',
@@ -1617,12 +1619,12 @@ jobs:
     ],
     lab: {
       id: 'lab5',
-      title: 'Production Release, Offline EDD & Optional Eval/Deploy Tracks',
+      title: 'Production Release, Offline EDD, Bad Canary & Optional Eval/Deploy Tracks',
       environment: 'Local Python',
       workspacePath: 'labs/module-5-production-operations',
       instructions: [
-        'Run the deterministic release, telemetry, offline eval, provider-plan, and rollback tests.',
-        'Generate machine-readable evidence without cloud credentials or false deployment claims.',
+        'Run the deterministic release, telemetry, offline eval, provider-plan, rollback, and bad-canary reject tests.',
+        'Generate machine-readable evidence without cloud credentials or false deployment/canary claims.',
         'Optionally (local only): ACADEMY_EVAL / ACADEMY_PROMPTFOO / ACADEMY_DEPLOY tracks for DeepEval, Promptfoo, HF, or Render.'
       ],
       validationCommands: [
@@ -1630,9 +1632,10 @@ jobs:
         'python -m venv .venv && source .venv/bin/activate',
         'pip install -r requirements.txt',
         'pytest -q',
-        'python -m app.evidence --output artifacts/evidence.json'
+        'python -m app.evidence --output artifacts/evidence.json',
+        'python -m app.canary_lab --mode quality_regression'
       ],
-      expectedOutput: '24 passed; evidence records gates, telemetry, Azure/Databricks/HF/Render plans, and claims.*_deployed/executed false by default.',
+      expectedOutput: '31 passed; evidence records gates, telemetry, bad_canary reject, Azure/Databricks/HF/Render plans, and claims.*_deployed/executed/cloud_canary false by default.',
       starterCode: {
         id: 'lab5_starter',
         title: 'Offline EDD + Provider Plan Smoke',
@@ -1734,6 +1737,19 @@ print(deployment_plan("huggingface", "models:/risk/1", "staging")["resource"])
         answerIndex: 1,
         explanation: 'Same honesty pattern as the GPU track: plans offline, live calls opt-in, claims follow API success.',
         concept: 'Deploy Claim Honesty'
+      },
+      {
+        id: 'q5_7',
+        question: 'A canary version ships healthy, then a later observation window fails quality/latency/safety gates. What should the control plane do?',
+        options: [
+          'Force-promote to production and fix metrics afterward',
+          'Block production promotion, reject/retire the canary, keep active on the known-good production version, and audit canary_rejected',
+          'Delete the audit log so the failed canary never existed',
+          'Set claims.cloud_canary=true because any canary simulation counts as a cloud rollout'
+        ],
+        answerIndex: 1,
+        explanation: 'Bad-canary handling is distinct from rollback: reject retires a never-promoted canary without swapping production.',
+        concept: 'Bad Canary Reject'
       }
     ],
     flashcards: [
@@ -1764,6 +1780,13 @@ print(deployment_plan("huggingface", "models:/risk/1", "staging")["resource"])
         category: 'Deployment',
         definition: 'Credential-free deployment descriptors for Hugging Face inference endpoints and Render web services, with optional live API calls behind ACADEMY_DEPLOY=1.',
         keyTakeaway: 'Azure/Databricks stay plan-only here; HF/Render can go live when gated and must update claims honestly.'
+      },
+      {
+        id: 'fc5_5',
+        term: 'Bad Canary Reject',
+        category: 'Production Ops',
+        definition: 'After a canary ships, a degraded observation window fails release gates: block production, retire the canary (reject_canary), leave active unchanged, and audit canary_rejected — without claiming a cloud canary.',
+        keyTakeaway: 'Reject ≠ rollback: reject retires a never-promoted canary; rollback swaps production after a bad promote.'
       }
     ]
   }

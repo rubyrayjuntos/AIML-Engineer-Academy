@@ -110,6 +110,25 @@ class ReleaseStore:
         self._event(state, "promote", version, actor, {"target": target, "gates": gates})
         self._write(state)
 
+    def reject_canary(self, version: str, actor: str, reason: str) -> None:
+        """Retire a canary that must not reach production. Does not change active/previous."""
+        if not reason.strip():
+            raise ValueError("reject reason is required")
+        state = self._read()
+        if version not in state["stages"]:
+            raise KeyError(version)
+        if state["stages"][version]["stage"] != "canary":
+            raise ValueError("reject_canary requires canary stage")
+        state["stages"][version]["stage"] = "retired"
+        self._event(
+            state,
+            "canary_rejected",
+            version,
+            actor,
+            {"reason": reason},
+        )
+        self._write(state)
+
     def rollback(self, actor: str, reason: str) -> str:
         if not reason.strip():
             raise ValueError("rollback reason is required")
