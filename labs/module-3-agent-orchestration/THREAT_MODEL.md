@@ -10,6 +10,8 @@
 | Invalid model output | Pydantic validates types, bounds, and mandatory approval | Add model repair adapter with a hard retry ceiling |
 | Unauthorized intervention | Workflow stops at `awaiting_approval`; approval only records a decision | Add authenticated approver identity and immutable audit log |
 | MCP privilege escalation | MCP server exposes only two read-only tools over local stdio | Add capability tokens and Streamable HTTP authentication before remote use |
+| Browser IPI (page-as-instruction) | Stub runtime sanitizes a11y observations; instruction banners quarantined; `evaluate_js` rejected; consequential clicks require HITL | Optional Playwright path still must keep Dual-LLM quarantine before privileged planners |
+| Browser origin escape | Navigate allowlist (`vendor.example` only) | Expand allowlist via explicit config; block file:// and data: URLs in production |
 
 This is a teaching checkpoint, not a production authorization system. It proves
 the control flow and makes the remaining production controls explicit.

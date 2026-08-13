@@ -697,26 +697,27 @@ def dpo_loss(logp_w, logp_l, logp_ref_w, logp_ref_l, beta=0.1):
     slug: 'agent-orchestration',
     tag: 'MODULE 03',
     title: 'AI Agent Orchestration & Protocol Standards',
-    subtitle: 'ReAct, MCP, Structured SQL Agents & Optional Live PydanticAI',
-    description: 'Build a Customer Success HITL agent and a read-only SQL/MCP lane with structured outputs and firewalls. Optional live pydantic_ai.Agent(output_type=SQLQueryResult) requires ACADEMY_LIVE_LLM=1. Survey LangGraph, Streamable HTTP, and Playwright-style computer-use — those are theory or ungated-optional, not required CI builds.',
+subtitle: 'ReAct, MCP, Structured SQL Agents, Browser Stub & Optional Live Tracks',
+    description: 'Build a Customer Success HITL agent, a read-only SQL/MCP lane, and a governed browser stub micro-lab (allowlist, a11y, IPI quarantine, HITL writes). Optional live pydantic_ai.Agent(output_type=SQLQueryResult) requires ACADEMY_LIVE_LLM=1; optional Playwright requires ACADEMY_BROWSER=1. Survey LangGraph and Streamable HTTP.',
     estimatedHours: 18,
     prerequisites: ['Module 1 & 2', 'JSON Schema', 'Python Type Hints'],
     competencyContract: {
       explain: [
         'ReAct loops, DSPy-style prompt compilation (BootstrapFewShot teaching stub), RAG versus fine-tuning, and agent memory',
         'MCP primitives with stdio transport in lab; Streamable HTTP and other remote transports at survey level',
-        'Structured-output shapes (Pydantic models / SQLQueryResult / PydanticAI-shaped validation), SQL read-only firewalls/repair, HITL approval; when the optional live Agent path is claim-safe (ACADEMY_LIVE_LLM); LangGraph and browser/computer-use action spaces at survey level'
+        'Structured-output shapes (Pydantic models / SQLQueryResult / PydanticAI-shaped validation), SQL read-only firewalls/repair, HITL approval; when the optional live Agent path is claim-safe (ACADEMY_LIVE_LLM)',
+        'Browser action spaces, a11y vs screenshot observations, IPI quarantine, and HITL for consequential writes; live Playwright as optional only (ACADEMY_BROWSER); LangGraph at survey level'
       ],
       buildAndDebug: [
         'Build a CustomerSuccess HITL agent with Pydantic structured output (SQLQueryResult seam) — no live pydantic_ai package required in CI',
         'Connect an MCP stdio server/client to read-only SQLite CS and SQL tools with firewall/repair tests',
-        'Exercise a DSPy-style teaching stub and the optional live structured-output plan/gate (ACADEMY_LIVE_LLM) without mislabeling CI evidence; design (on paper / threat model) a governed browser-tool loop — no Playwright browser lab in CI'
+        'Run the browser stub micro-lab (navigate/type/extract_a11y + HITL click) against the vendor portal fixture; exercise optional live structured-output and Playwright plan/gates without mislabeling CI evidence'
       ],
       evidenceRequired: [
         'Runnable agent repository and MCP stdio protocol trace',
-        'Agent tests covering CS HITL governance plus SQL RO firewall/repair',
-        'Threat model covering tool and SQL surfaces; optional browser IPI notes at survey level (not a Playwright lab deliverable)',
-        'Evidence JSON with claims.pydantic_ai_executed / sql_structured_live false by default'
+        'Agent tests covering CS HITL governance, SQL RO firewall/repair, and browser stub governance',
+        'Threat model covering tool, SQL, and browser IPI surfaces',
+        'Evidence JSON with claims.pydantic_ai_executed / sql_structured_live / playwright_executed false by default'
       ]
     },
     objectives: [
@@ -725,8 +726,8 @@ def dpo_loss(logp_w, logp_l, logp_ref_w, logp_ref_l, beta=0.1):
       'Implement MCP servers/clients over stdio locally; explain Streamable HTTP remote transports at survey level',
       'Validate tool outputs with Pydantic structured types (SQLQueryResult); optionally run live pydantic_ai when ACADEMY_LIVE_LLM=1 — otherwise survey-level only',
       'Align text-to-SQL with schema tools, read-only execution, and repair loops',
-      'Explain LangGraph-style cyclic state machines and HITL nodes at survey level (no LangGraph code in lab)',
-      'Explain governed browser / computer-use agents (least-privilege tools, a11y observations, HITL writes) at survey level — no Playwright lab'
+      'Implement a governed browser stub loop (allowlist, a11y, IPI sanitizer, HITL writes); treat live Playwright as optional (ACADEMY_BROWSER=1)',
+      'Explain LangGraph-style cyclic state machines and HITL nodes at survey level (no LangGraph code in lab)'
     ],
     sections: [
       {
@@ -781,6 +782,14 @@ def dpo_loss(logp_w, logp_l, logp_ref_w, logp_ref_l, beta=0.1):
       {
         title: '3.5 Browser & Computer-Use Agents (Action Spaces, Observation, Governance)',
         content: `Browser / computer-use agents control a real UI (DOM or OS) instead of only APIs (survey + System Design simulator — not a required Playwright lab). They still run a ReAct loop, but the **action space** and **observation channel** change the threat model.
+
+**Required Module 3 micro-lab (stub DOM — no Playwright in CI):**
+- Fixture: \`fixtures/vendor_portal.html\` with an embedded IPI bait string.
+- Runtime: \`StubDomRuntime\` + \`BrowserAgent\` (\`app/browser_*.py\`).
+- Tools: \`navigate\`, \`click\`, \`type\`, \`scroll\`, \`extract_a11y\` — \`evaluate_js\` is rejected.
+- Writes: consequential \`click\` (Continue/submit) stops at HITL; \`type\` is reversible without approval.
+- Observations: sanitized a11y trees; instruction-like text is quarantined before the planner.
+- Optional: \`ACADEMY_BROWSER=1\` + \`requirements-browser.txt\` for a real Playwright session (claim-gated).
 
 **Action Space (least privilege):**
 - Prefer typed tools such as \`navigate\`, \`click\`, \`type\`, \`scroll\`, and \`extract_a11y\` over a raw "execute arbitrary JS" escape hatch.
@@ -900,7 +909,7 @@ print(plan_tool(BrowserToolCall(action=BrowserAction.EXTRACT_A11Y, selector="mai
 # Example: form fill must be flagged for HITL
 print(plan_tool(BrowserToolCall(action=BrowserAction.TYPE, selector="textbox:Search", text="Acme", requires_approval=True)))
 `,
-        explanation: 'Defines a least-privilege browser tool schema. Real Playwright/CDP runtimes plug in behind this boundary; CI should not require a live browser.'
+        explanation: 'Defines a least-privilege browser tool schema implemented by the Module 3 stub runtime (app/browser_*.py). Optional Playwright plugs in behind ACADEMY_BROWSER=1; CI uses StubDomRuntime only.'
       },
       {
         id: 'c3_dspy_bootstrap',
@@ -934,46 +943,53 @@ print(compiled["instruction"], len(compiled["demos"]), metric_exact_select(train
     ],
     lab: {
       id: 'lab3',
-      title: 'Governed Agents: Customer Success HITL + Read-Only SQL/MCP',
+      title: 'Governed Agents: CS HITL + SQL/MCP + Browser Stub',
       environment: 'Local Python',
       workspacePath: 'labs/module-3-agent-orchestration',
       instructions: [
         'cd labs/module-3-agent-orchestration',
         'python -m venv .venv && source .venv/bin/activate',
         'pip install -r requirements.txt',
-        'pytest -q  # 29 passed, 1 skipped (live_llm)',
+        'pytest -q  # 40 passed, 2 skipped (live_llm + browser)',
         'python -m app.evidence --output artifacts/evidence.json',
         'python -m app.pydantic_ai_optional --output artifacts/live_structured_plan.json  # claims stay false',
-        'Optional live: pip install -r requirements-live.txt && ACADEMY_LIVE_LLM=1 XAI_API_KEY=... python -m app.pydantic_ai_optional'
+        'python -m app.browser_optional --output artifacts/browser_plan.json  # stub demo; claims.playwright_executed=false',
+        'Optional live: ACADEMY_LIVE_LLM=1 + requirements-live.txt; Optional browser: ACADEMY_BROWSER=1 + requirements-browser.txt'
       ],
       validationCommands: [
         'pytest -q',
         'python -m app.evidence --output artifacts/evidence.json',
-        'python -m app.pydantic_ai_optional --output artifacts/live_structured_plan.json'
+        'python -m app.pydantic_ai_optional --output artifacts/live_structured_plan.json',
+        'python -m app.browser_optional --output artifacts/browser_plan.json'
       ],
-      expectedOutput: '29 passed, 1 skipped; evidence claims.pydantic_ai_executed=false by default',
+      expectedOutput: '40 passed, 2 skipped; evidence claims.pydantic_ai_executed / playwright_executed=false by default; browser_lane awaiting_approval',
       starterCode: {
         id: 'lab3_starter',
-        title: 'Optional Live Structured-Output Plan',
+        title: 'Browser Stub: HITL Before Submit',
         language: 'python',
-        filename: 'labs/module-3-agent-orchestration/app/pydantic_ai_optional.py',
-        code: `from app.pydantic_ai_optional import build_live_structured_plan, maybe_run_live_sql
-from app.sql_agent import SqlAgent
-from app.sql_store import AnalyticsStore
+        filename: 'labs/module-3-agent-orchestration/app/browser_agent.py',
+        code: `from app.browser_agent import BrowserAgent
+from app.browser_optional import build_browser_plan, maybe_run_browser_track
+from app.pydantic_ai_optional import build_live_structured_plan, maybe_run_live_sql
 
-# Default CI path — deterministic propose + RO firewall
-store = AnalyticsStore("analytics.db")
-store.initialize(); store.seed()
-result = SqlAgent(store).run("What is total order revenue?")
-assert result["propose_meta"]["path"] == "deterministic"
-print(result["result"]["sql_query"], result["rows"])
+agent = BrowserAgent()
+result = agent.run("Renew ACME license on the vendor portal")
+assert result.status == "awaiting_approval"
+assert result.claims["playwright_executed"] is False
+assert result.claims["ipi_detected"] is True
 
-# Optional live track plan (no network unless ACADEMY_LIVE_LLM=1 + key)
-plan = maybe_run_live_sql(build_live_structured_plan())
-assert plan["claims"]["pydantic_ai_executed"] is False
-print(plan["execution"]["status"], plan["gate"]["mode"])
+# Human approves the Continue click
+done = agent.decide(approved=True)
+assert done.status == "executed"
+print("submitted", agent.runtime.submitted)
+
+# Optional tracks stay claim-safe offline (ACADEMY_LIVE_LLM / ACADEMY_BROWSER unset)
+live = maybe_run_live_sql(build_live_structured_plan())
+browser = maybe_run_browser_track(build_browser_plan())
+assert live["claims"]["pydantic_ai_executed"] is False
+assert browser["claims"]["playwright_executed"] is False
 `,
-        explanation: 'Required path stays offline. Live pydantic_ai.Agent(output_type=SQLQueryResult) only runs when ACADEMY_LIVE_LLM=1 and an API key are set; claims flip only after a real execution.'
+        explanation: 'Required path uses StubDomRuntime (CPU fixture) plus offline SQL propose. Live pydantic_ai and Playwright only run when ACADEMY_LIVE_LLM=1 / ACADEMY_BROWSER=1; claims flip only after real execution.'
       }
     },
     quizzes: [
