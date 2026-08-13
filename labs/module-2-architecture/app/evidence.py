@@ -20,7 +20,9 @@ import numpy as np
 from app.mechanics import (
     causal_mask,
     cosine_alpha_bar,
+    ddim_step,
     dequantize_symmetric_int4,
+    dpo_loss,
     gqa_kv_cache_bytes,
     grpo_advantages,
     lora_forward,
@@ -28,6 +30,7 @@ from app.mechanics import (
     mha_kv_cache_bytes,
     mla_kv_cache_bytes,
     moe_routing,
+    predict_x0_from_eps,
     q_sample,
     quantize_symmetric_int4,
 )
@@ -124,11 +127,13 @@ def generate_evidence() -> dict:
         "imbalance_ratio": round(result["imbalance_ratio"], 4),
     }
 
-    # 7. Diffusion schedule
+    # 7. Diffusion schedule + reverse (DDIM toy)
     alpha_bar = cosine_alpha_bar(1000)
     x0 = np.ones(8, dtype=np.float64)
     eps = rng.standard_normal(8)
     x_mid = q_sample(x0, t=500, alpha_bar=alpha_bar, eps=eps)
+    x0_hat = predict_x0_from_eps(x_mid, 500, alpha_bar, eps)
+    x_prev = ddim_step(x_mid, 500, alpha_bar, eps, t_prev=499)
     evidence["competencies"]["diffusion_schedule"] = {
         "timesteps": 1000,
         "alpha_bar_first": round(float(alpha_bar[0]), 6),
@@ -136,8 +141,24 @@ def generate_evidence() -> dict:
         "mid_mean_square": round(float(np.mean(x_mid**2)), 6),
         "non_increasing": bool(np.all(np.diff(alpha_bar) <= 1e-12)),
     }
+    evidence["competencies"]["diffusion_reverse"] = {
+        "method": "ddim_eta0",
+        "predict_x0_max_err": round(float(np.max(np.abs(x0_hat - x0))), 12),
+        "ddim_error_reduced": bool(
+            float(np.mean((x_prev - x0) ** 2)) < float(np.mean((x_mid - x0) ** 2))
+        ),
+        "note": "Single algebraic reverse step with known eps — not image generation",
+    }
 
-    # 8. Optional QLoRA track plan (CPU-safe; never claims GPU by default)
+    # 8. DPO loss toy
+    loss = dpo_loss(-0.5, -1.5, -1.0, -1.0, beta=0.1)
+    evidence["competencies"]["dpo_loss"] = {
+        "beta": 0.1,
+        "loss": round(loss, 8),
+        "note": "Closed-form DPO BCE on provided log-probs — not an RLHF train",
+    }
+
+    # 9. Optional QLoRA track plan (CPU-safe; never claims GPU by default)
     qlora_plan = maybe_run_gpu_dry_run(build_qlora_plan())
     evidence["optional_gpu_track"] = {
         "qlora_plan_claims": qlora_plan["claims"],
@@ -149,23 +170,26 @@ def generate_evidence() -> dict:
             "gpu_used": bool(qlora_plan["claims"]["gpu_used"]),
             "qlora_executed": bool(qlora_plan["claims"]["qlora_executed"]),
             "cuda_available": bool(qlora_plan["claims"]["cuda_available"]),
+            "diffusion_image_generated": False,
+            "dpo_policy_trained": False,
         }
     )
 
     # Assessment rubric (100 points)
     evidence["assessment_rubric"] = [
-        {"competency": "Causal attention mask", "points": 8},
-        {"competency": "MHA KV-cache accounting", "points": 8},
-        {"competency": "GQA KV-cache accounting", "points": 8},
-        {"competency": "MLA KV-cache accounting", "points": 8},
-        {"competency": "LoRA parameter counting", "points": 8},
-        {"competency": "LoRA forward pass", "points": 8},
-        {"competency": "Symmetric 4-bit quantization", "points": 8},
-        {"competency": "GRPO advantage normalisation", "points": 8},
-        {"competency": "MoE top-k routing", "points": 8},
-        {"competency": "Diffusion schedule numerics", "points": 9},
-        {"competency": "Optional QLoRA plan + honest GPU claims", "points": 10},
-        {"competency": "Deterministic evidence artifact", "points": 9},
+        {"competency": "Causal attention mask", "points": 7},
+        {"competency": "MHA KV-cache accounting", "points": 7},
+        {"competency": "GQA KV-cache accounting", "points": 7},
+        {"competency": "MLA KV-cache accounting", "points": 7},
+        {"competency": "LoRA parameter counting", "points": 7},
+        {"competency": "LoRA forward pass", "points": 7},
+        {"competency": "Symmetric 4-bit quantization", "points": 7},
+        {"competency": "GRPO advantage normalisation", "points": 7},
+        {"competency": "MoE top-k routing", "points": 7},
+        {"competency": "Diffusion schedule + DDIM reverse toy", "points": 12},
+        {"competency": "DPO loss toy", "points": 8},
+        {"competency": "Optional QLoRA plan + honest GPU claims", "points": 9},
+        {"competency": "Deterministic evidence artifact", "points": 8},
     ]
     evidence["total_points"] = 100
 

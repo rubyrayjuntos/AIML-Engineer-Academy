@@ -11,10 +11,8 @@ Pure-NumPy implementations of the core numerical mechanics tested in this lab:
   - Symmetric 4-bit quantization / dequantization
   - GRPO group-advantage normalisation
   - Top-k mixture-of-experts (MoE) routing with capacity and balance metrics
-  - Cosine diffusion noise schedule and closed-form forward q_sample
-
-All functions are deterministic and stateless; they accept plain Python scalars
-or NumPy arrays and return plain Python scalars or NumPy arrays.
+  - Cosine diffusion noise schedule, forward q_sample, and DDIM reverse step
+  - Direct Preference Optimization (DPO) loss toy on provided log-probs
 """
 from __future__ import annotations
 
@@ -281,3 +279,79 @@ def q_sample(
     eps = np.asarray(eps, dtype=np.float64)
     a = float(alpha_bar[t])
     return np.sqrt(a) * x0 + np.sqrt(1.0 - a) * eps
+
+
+def predict_x0_from_eps(
+    x_t: np.ndarray,
+    t: int,
+    alpha_bar: np.ndarray,
+    eps_hat: np.ndarray,
+) -> np.ndarray:
+    """Recover an x0 estimate from noisy x_t and a noise prediction.
+
+    x0 = (x_t - sqrt(1 - \\bar{alpha}_t) * eps_hat) / sqrt(\\bar{alpha}_t)
+
+    Teaching toy only — not a trained UNet / image generator.
+    """
+    x_t = np.asarray(x_t, dtype=np.float64)
+    eps_hat = np.asarray(eps_hat, dtype=np.float64)
+    a = float(alpha_bar[t])
+    if a <= 0.0:
+        raise ValueError("alpha_bar[t] must be > 0 for x0 prediction")
+    return (x_t - np.sqrt(1.0 - a) * eps_hat) / np.sqrt(a)
+
+
+def ddim_step(
+    x_t: np.ndarray,
+    t: int,
+    alpha_bar: np.ndarray,
+    eps_hat: np.ndarray,
+    t_prev: int | None = None,
+) -> np.ndarray:
+    """One deterministic DDIM reverse step (η = 0).
+
+    x_{t_prev} = sqrt(\\bar{alpha}_{t_prev}) * x0_hat
+                 + sqrt(1 - \\bar{alpha}_{t_prev}) * eps_hat
+
+    where x0_hat = predict_x0_from_eps(...). Defaults ``t_prev = max(t - 1, 0)``.
+    Not a multi-step sampler and not image generation.
+    """
+    if t_prev is None:
+        t_prev = max(int(t) - 1, 0)
+    if not (0 <= t_prev <= t < len(alpha_bar)):
+        raise ValueError("require 0 <= t_prev <= t < len(alpha_bar)")
+    x0_hat = predict_x0_from_eps(x_t, t, alpha_bar, eps_hat)
+    a_prev = float(alpha_bar[t_prev])
+    eps_hat = np.asarray(eps_hat, dtype=np.float64)
+    return np.sqrt(a_prev) * x0_hat + np.sqrt(1.0 - a_prev) * eps_hat
+
+
+# ---------------------------------------------------------------------------
+# 8. DPO loss toy (preference BCE on provided log-probs)
+# ---------------------------------------------------------------------------
+
+
+def dpo_loss(
+    logp_w: np.ndarray | float,
+    logp_l: np.ndarray | float,
+    logp_ref_w: np.ndarray | float,
+    logp_ref_l: np.ndarray | float,
+    beta: float = 0.1,
+) -> float:
+    """Direct Preference Optimization loss (Rafailov et al.) on log-probs.
+
+    L = -log σ( β [ (log π_w - log π_l) - (log π_ref_w - log π_ref_l) ] )
+
+    Implemented as mean softplus(-logits) for numerical stability. Accepts
+    scalars or 1-D arrays. This is a **loss toy** — not an RLHF training loop.
+    """
+    if beta < 0:
+        raise ValueError("beta must be >= 0")
+    logp_w = np.asarray(logp_w, dtype=np.float64)
+    logp_l = np.asarray(logp_l, dtype=np.float64)
+    logp_ref_w = np.asarray(logp_ref_w, dtype=np.float64)
+    logp_ref_l = np.asarray(logp_ref_l, dtype=np.float64)
+    logits = beta * ((logp_w - logp_l) - (logp_ref_w - logp_ref_l))
+    # -log(sigmoid(z)) = softplus(-z) = log(1 + exp(-z))
+    losses = np.logaddexp(0.0, -logits)
+    return float(np.mean(losses))
