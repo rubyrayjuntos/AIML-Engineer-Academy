@@ -1,22 +1,22 @@
 """
 Tests for Module 2 – LLM Architecture Mechanics
 
-16 tests covering:
-  - causal_mask (2)
-  - KV-cache accounting: mha, gqa, mla (3)
-  - LoRA: param count, forward (2)
-  - quantization: roundtrip, range (2)
-  - GRPO advantages: mean, std (2)
-  - MoE routing: dispatch shape, capacity enforcement (2)
-  - diffusion: schedule endpoints, t=0 identity, energy vs t (3)
+Covering:
+  - causal_mask, KV-cache, LoRA, quantization, GRPO, MoE
+  - diffusion: schedule, q_sample, predict_x0, ddim_step
+  - DPO loss toy
 """
+import math
+
 import numpy as np
 import pytest
 
 from app.mechanics import (
     causal_mask,
     cosine_alpha_bar,
+    ddim_step,
     dequantize_symmetric_int4,
+    dpo_loss,
     gqa_kv_cache_bytes,
     grpo_advantages,
     lora_forward,
@@ -24,6 +24,7 @@ from app.mechanics import (
     mha_kv_cache_bytes,
     mla_kv_cache_bytes,
     moe_routing,
+    predict_x0_from_eps,
     q_sample,
     quantize_symmetric_int4,
 )
@@ -186,3 +187,89 @@ def test_q_sample_energy_increases_with_t():
     residual_late = float(np.mean((q_sample(x0, t=900, alpha_bar=alpha_bar, eps=eps) - x0) ** 2))
     assert residual_late > residual_early
     assert e_late > 0 and e_early > 0
+
+
+def test_predict_x0_recovers_from_q_sample():
+    rng = np.random.default_rng(1)
+    alpha_bar = cosine_alpha_bar(200)
+    x0 = rng.standard_normal(16)
+    eps = rng.standard_normal(16)
+    t = 80
+    xt = q_sample(x0, t, alpha_bar, eps)
+    x0_hat = predict_x0_from_eps(xt, t, alpha_bar, eps)
+    np.testing.assert_allclose(x0_hat, x0, atol=1e-9)
+
+
+def test_ddim_step_identity_at_same_t():
+    rng = np.random.default_rng(2)
+    alpha_bar = cosine_alpha_bar(100)
+    x0 = rng.standard_normal(8)
+    eps = rng.standard_normal(8)
+    t = 40
+    xt = q_sample(x0, t, alpha_bar, eps)
+    same = ddim_step(xt, t, alpha_bar, eps, t_prev=t)
+    np.testing.assert_allclose(same, xt, atol=1e-9)
+
+
+def test_ddim_step_reduces_error_toward_x0():
+    rng = np.random.default_rng(3)
+    alpha_bar = cosine_alpha_bar(100)
+    x0 = rng.standard_normal(8)
+    eps = rng.standard_normal(8)
+    t = 50
+    xt = q_sample(x0, t, alpha_bar, eps)
+    x_prev = ddim_step(xt, t, alpha_bar, eps, t_prev=t - 1)
+    err_t = float(np.mean((xt - x0) ** 2))
+    err_prev = float(np.mean((x_prev - x0) ** 2))
+    assert err_prev < err_t
+    # Full algebraic clean estimate still comes from predict_x0 (ᾱ may not be 1 at index 0).
+    x0_hat = predict_x0_from_eps(xt, t, alpha_bar, eps)
+    np.testing.assert_allclose(x0_hat, x0, atol=1e-9)
+
+
+def test_ddim_step_deterministic():
+    rng = np.random.default_rng(4)
+    alpha_bar = cosine_alpha_bar(64)
+    xt = rng.standard_normal(5)
+    eps = rng.standard_normal(5)
+    a = ddim_step(xt, 20, alpha_bar, eps, t_prev=10)
+    b = ddim_step(xt, 20, alpha_bar, eps, t_prev=10)
+    np.testing.assert_array_equal(a, b)
+
+
+# ---------------------------------------------------------------------------
+# DPO loss toy
+# ---------------------------------------------------------------------------
+
+
+def test_dpo_loss_beta_zero_is_log2():
+    loss = dpo_loss(0.0, 0.0, 0.0, 0.0, beta=0.0)
+    assert loss == pytest.approx(math.log(2.0), rel=0, abs=1e-12)
+
+
+def test_dpo_loss_prefers_higher_margin():
+    # Larger preferred-vs-rejected margin under the policy → lower DPO loss.
+    low_margin = dpo_loss(logp_w=-1.0, logp_l=-1.1, logp_ref_w=-1.0, logp_ref_l=-1.0, beta=0.5)
+    high_margin = dpo_loss(logp_w=-0.2, logp_l=-2.0, logp_ref_w=-1.0, logp_ref_l=-1.0, beta=0.5)
+    assert high_margin < low_margin
+
+
+def test_dpo_loss_known_fixture():
+    # β·Δ = 0.1 * ((-0.5 - -1.5) - ( -1.0 - -1.0 )) = 0.1 * 1.0 = 0.1
+    # loss = softplus(-0.1) = log(1 + exp(-0.1))
+    loss = dpo_loss(-0.5, -1.5, -1.0, -1.0, beta=0.1)
+    expected = math.log1p(math.exp(-0.1))
+    assert loss == pytest.approx(expected, rel=0, abs=1e-12)
+
+
+def test_dpo_loss_batch_mean():
+    loss = dpo_loss(
+        np.array([-0.5, -0.4]),
+        np.array([-1.5, -1.4]),
+        np.array([-1.0, -1.0]),
+        np.array([-1.0, -1.0]),
+        beta=0.1,
+    )
+    a = math.log1p(math.exp(-0.1))
+    b = math.log1p(math.exp(-0.1))  # same Δ=1.0 for both rows
+    assert loss == pytest.approx(0.5 * (a + b), abs=1e-12)

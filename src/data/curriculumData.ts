@@ -238,15 +238,23 @@ async def stream_generate(req: PromptRequest):
     prerequisites: ['Transformer Attention Mechanism $O(N^2)$', 'Matrix Multiplication', 'PyTorch Basics'],
     competencyContract: {
       explain: ['Transformer attention, KV-cache behavior, and FlashAttention/MLA tradeoffs', 'SFT versus DPO versus GRPO and MoE routing', 'LoRA/QLoRA versus AWQ versus GGUF, and diffusion forward/reverse processes'],
-      buildAndDebug: ['Compute attention / KV-cache / LoRA / quantization / GRPO / MoE / diffusion schedule numerics in NumPy', 'Validate formulas against the module pytest suite', 'Produce a CPU-safe QLoRA plan artifact; optionally dry-run GPU deps when ACADEMY_GPU=1'],
-      evidenceRequired: ['Passing pytest results for architecture mechanics (including diffusion schedules)', 'Evidence JSON with checksum and honest GPU claims (false by default)', 'Notes comparing lab numerics to production QLoRA/vLLM/diffusion — without claiming unmeasured GPU runs']
+      buildAndDebug: [
+        'Compute attention / KV-cache / LoRA / quantization / GRPO / MoE / diffusion forward+reverse / DPO loss numerics in NumPy',
+        'Validate formulas against the module pytest suite',
+        'Produce a CPU-safe QLoRA plan artifact; optionally dry-run GPU deps when ACADEMY_GPU=1'
+      ],
+      evidenceRequired: [
+        'Passing pytest results for architecture mechanics (including diffusion reverse + DPO toys)',
+        'Evidence JSON with checksum and honest GPU / image-gen / DPO-train claims (false by default)',
+        'Notes comparing lab numerics to production QLoRA/vLLM/diffusion — without claiming unmeasured runs'
+      ]
     },
     objectives: [
       'Deconstruct FlashAttention-3 GPU memory tiling and Hopper Tensor Memory Accelerator (TMA) pipelining',
       'Analyze DeepSeek Multi-Head Latent Attention (MLA) low-rank KV cache compression mechanics',
-      'Master Group Relative Policy Optimization (GRPO) without Critic models for reasoning LLMs',
+      'Compute GRPO advantages and the DPO loss toy on provided log-probs (not a full RLHF train)',
       'Explain QLoRA vs AWQ vs GGUF tradeoffs; complete the required NumPy LoRA/int4 lab and the optional CUDA QLoRA plan/dry-run when hardware allows',
-      'Explain diffusion forward/reverse processes, latent diffusion, and text-conditioning for multimodal agents'
+      'Implement diffusion forward q_sample plus DDIM reverse toys (predict_x0 / one η=0 step) — not image generation'
     ],
     sections: [
       {
@@ -272,7 +280,9 @@ async def stream_generate(req: PromptRequest):
         title: '2.3 Reinforcement Learning: DPO and GRPO (DeepSeek-R1)',
         content: `Post-training alignment has evolved from complex PPO-RLHF to simplified, highly scalable algorithms:
 
-- **Direct Preference Optimization (DPO):** Bypasses the separate reward model phase entirely by deriving an exact closed-form optimal policy inside a binary cross-entropy loss function.
+- **Direct Preference Optimization (DPO):** Bypasses the separate reward model phase entirely by deriving an exact closed-form optimal policy inside a binary cross-entropy loss. For a preferred completion $y_w$ and rejected $y_l$ (with reference policy $\\pi_{\\text{ref}}$):
+  $$\\mathcal{L}_{\\text{DPO}} = -\\log \\sigma\\Big(\\beta\\big[(\\log\\pi_\\theta(y_w)-\\log\\pi_\\theta(y_l))-(\\log\\pi_{\\text{ref}}(y_w)-\\log\\pi_{\\text{ref}}(y_l))\\big]\\Big)$$
+  Module 2 lab implements this as a **NumPy loss toy** on provided log-probs (\`dpo_loss\`) — not a full preference-training loop.
 - **Group Relative Policy Optimization (GRPO):** GRPO avoids a learned critic/value model by estimating relative advantages from grouped candidate outputs, reducing one major source of training memory overhead.
   - For a prompt $q$, the actor generates a group of $G$ candidate outputs $\\{o_1, o_2, \\dots, o_G\\}$.
   - A rule-based reward function (math compiler, test suite pass rate, formatting checker) scores each output $r_i$.
@@ -292,8 +302,8 @@ async def stream_generate(req: PromptRequest):
         content: `While autoregressive LLMs dominate text agents, **diffusion models** power most modern image, video, and audio generators that multimodal agents must call as tools.
 
 **Core Process:**
-- **Forward (noising):** Gradually add Gaussian noise to a clean sample $x_0$ over $T$ timesteps until the distribution approaches isotropic noise $x_T \\sim \\mathcal{N}(0, I)$.
-- **Reverse (denoising):** A neural network (classically a UNet with cross-attention) learns to predict noise or a clean estimate so the sampler can iterate from $x_T$ back to $x_0$.
+- **Forward (noising):** Gradually add Gaussian noise to a clean sample $x_0$ over $T$ timesteps until the distribution approaches isotropic noise $x_T \\sim \\mathcal{N}(0, I)$. Lab: \`q_sample\`.
+- **Reverse (denoising):** A neural network learns to predict noise $\\hat{\\epsilon}$ (or $x_0$). Lab toys: \`predict_x0_from_eps\` and one deterministic **DDIM** step (\`ddim_step\`, $\\eta=0$) — not a full sampler / image generator.
 
 **Latent Diffusion:**
 Running the process in a compressed **latent space** (VAE encoder/decoder) instead of raw pixels cuts compute while preserving quality. Text prompts condition the denoiser via cross-attention to embeddings from encoders such as **CLIP** or T5.
@@ -302,7 +312,7 @@ Running the process in a compressed **latent space** (VAE encoder/decoder) inste
 - Treat image/video models as **external tools** with latency, cost, and safety boundaries (prompt filters, NSFW gates, rate limits).
 - Prefer **latent** pipelines for interactive agents; reserve pixel-space diffusion for research or specialized fidelity needs.
 - Sampler choice (DDIM, DPM-Solver, etc.) trades step count against quality — measure end-to-end tool latency, not just FLOPs.`,
-        keyFormula: 'x_t = \\sqrt{\\bar{\\alpha}_t}\\, x_0 + \\sqrt{1-\\bar{\\alpha}_t}\\, \\epsilon,\\quad \\epsilon \\sim \\mathcal{N}(0,I)'
+        keyFormula: 'x_t = \\sqrt{\\bar{\\alpha}_t}\\, x_0 + \\sqrt{1-\\bar{\\alpha}_t}\\, \\epsilon;\\quad \\hat{x}_0 = (x_t - \\sqrt{1-\\bar{\\alpha}_t}\\,\\hat{\\epsilon})/\\sqrt{\\bar{\\alpha}_t}'
       },
       {
         title: '2.6 Quantization Paths: QLoRA, AWQ & GGUF (Optional GPU Track)',
@@ -393,33 +403,43 @@ print("GRPO Advantages:", adv)
         explanation: 'GRPO normalizes rewards strictly within a generated output group per prompt, eliminating the Critic model requirement.'
       },
       {
+        id: 'c2_dpo',
+        title: 'DPO Loss Toy (NumPy)',
+        language: 'python',
+        filename: 'dpo_loss.py',
+        code: `import math
+import numpy as np
+
+def dpo_loss(logp_w, logp_l, logp_ref_w, logp_ref_l, beta: float = 0.1) -> float:
+    """L = -log σ(β[(logπ_w - logπ_l) - (logπ_ref_w - logπ_ref_l)])."""
+    logits = beta * ((logp_w - logp_l) - (logp_ref_w - logp_ref_l))
+    return float(np.mean(np.logaddexp(0.0, -logits)))  # softplus(-logits)
+
+print(round(dpo_loss(-0.5, -1.5, -1.0, -1.0, beta=0.1), 6))
+print(round(math.log1p(math.exp(-0.1)), 6))  # same golden value
+`,
+        explanation: 'Closed-form DPO BCE on provided log-probs. Module 2 CI proves the formula — it does not train a preference policy.'
+      },
+      {
         id: 'c2_diffusion',
-        title: 'DDPM Cosine Noise Schedule (NumPy)',
+        title: 'Diffusion Forward + DDIM Reverse Toys (NumPy)',
         language: 'python',
         filename: 'diffusion_schedule.py',
         code: `import numpy as np
+from app.mechanics import cosine_alpha_bar, q_sample, predict_x0_from_eps, ddim_step
 
-def cosine_alpha_bar(timesteps: int, s: float = 0.008) -> np.ndarray:
-    """Cumulative product \\bar{alpha}_t for a cosine schedule (Nichol & Dhariwal)."""
-    steps = np.arange(timesteps + 1, dtype=np.float64)
-    f = np.cos(((steps / timesteps) + s) / (1 + s) * np.pi / 2) ** 2
-    alpha_bar = f / f[0]
-    return alpha_bar[1:]
-
-def q_sample(x0: np.ndarray, t: int, alpha_bar: np.ndarray, eps: np.ndarray) -> np.ndarray:
-    """Forward diffusion: x_t = sqrt(abar_t) * x0 + sqrt(1 - abar_t) * eps."""
-    a = alpha_bar[t]
-    return np.sqrt(a) * x0 + np.sqrt(1.0 - a) * eps
-
-T = 1000
+T = 100
 alpha_bar = cosine_alpha_bar(T)
-x0 = np.ones(8)  # toy clean signal
+x0 = np.ones(8)
 eps = np.random.default_rng(0).standard_normal(8)
-x_mid = q_sample(x0, t=T // 2, alpha_bar=alpha_bar, eps=eps)
-print("alpha_bar[0]=", round(float(alpha_bar[0]), 4), "alpha_bar[-1]=", round(float(alpha_bar[-1]), 4))
-print("mid SNR-ish energy:", round(float(np.mean(x_mid**2)), 4))
+t = 40
+xt = q_sample(x0, t, alpha_bar, eps)
+x0_hat = predict_x0_from_eps(xt, t, alpha_bar, eps)          # recovers x0 when eps known
+x_prev = ddim_step(xt, t, alpha_bar, eps, t_prev=t - 1)       # one η=0 reverse step
+print("x0 err", float(np.max(np.abs(x0_hat - x0))))
+print("err reduced", float(np.mean((x_prev - x0)**2)) < float(np.mean((xt - x0)**2)))
 `,
-        explanation: 'Builds a cosine cumulative noise schedule and applies the closed-form forward diffusion step used by DDPM-style trainers.'
+        explanation: 'Forward q_sample plus algebraic reverse toys (predict_x0, one DDIM step). Not a UNet sampler or image generator.'
       }
     ],
     lab: {
@@ -431,22 +451,25 @@ print("mid SNR-ish energy:", round(float(np.mean(x_mid**2)), 4))
         'cd labs/module-2-architecture',
         'python -m venv .venv && source .venv/bin/activate',
         'pip install -r requirements.txt',
-        'pytest -q',
+        'pytest -q  # 27 passed — includes DDIM reverse + DPO loss toys',
         'python -m app.evidence --output artifacts/evidence.json'
       ],
-      expectedOutput: '19 passed',
+      expectedOutput: '27 passed',
       starterCode: {
         id: 'lab2_starter',
-        title: 'Optional QLoRA Plan Smoke Check',
+        title: 'DDIM Reverse + DPO Loss Toys',
         language: 'python',
-        filename: 'labs/module-2-architecture/app/qlora_optional.py',
-        code: `from app.qlora_optional import build_qlora_plan, maybe_run_gpu_dry_run
+        filename: 'labs/module-2-architecture/app/mechanics.py',
+        code: `from app.mechanics import cosine_alpha_bar, q_sample, predict_x0_from_eps, ddim_step, dpo_loss
+import numpy as np
 
-plan = maybe_run_gpu_dry_run(build_qlora_plan())
-assert plan["claims"]["qlora_executed"] is False
-print("mode", plan["gate"]["mode"], "rank", plan["lora"]["r"])
+alpha = cosine_alpha_bar(64)
+x0 = np.ones(4); eps = np.zeros(4)
+xt = q_sample(x0, t=10, alpha_bar=alpha, eps=eps)
+assert np.allclose(predict_x0_from_eps(xt, 10, alpha, eps), x0)
+print("dpo", round(dpo_loss(-0.5, -1.5, -1.0, -1.0, beta=0.1), 4))
 `,
-        explanation: 'Writes/inspects a CPU-safe QLoRA plan. GPU execution requires ACADEMY_GPU=1 on a CUDA host and never runs in default CI.'
+        explanation: 'Algebraic reverse diffusion + DPO BCE toys. Claims diffusion_image_generated / dpo_policy_trained stay false in evidence.'
       }
     },
     quizzes: [
@@ -540,6 +563,32 @@ print("mode", plan["gate"]["mode"], "rank", plan["lora"]["r"])
         answerIndex: 1,
         explanation: 'Keep training (QLoRA), inference quantization (AWQ), and packaging (GGUF) separate. The Module 2 NumPy lab teaches LoRA/int4 arithmetic; optional CUDA QLoRA is opt-in and claim-gated.',
         concept: 'Quantization Paths'
+      },
+      {
+        id: 'q2_8',
+        question: 'What does the Module 2 DDIM η=0 toy reverse step compute?',
+        options: [
+          'A full multi-step image sample from a trained UNet',
+          'One deterministic denoising update using a noise estimate (and optionally recovering x̂₀ algebraically)',
+          'The GRPO group-relative advantage for a batch of rewards',
+          'PagedAttention block allocation for vLLM'
+        ],
+        answerIndex: 1,
+        explanation: 'Lab toys predict_x0_from_eps and ddim_step are algebraic single-step reverse helpers — not image generation.',
+        concept: 'Diffusion Reverse'
+      },
+      {
+        id: 'q2_9',
+        question: 'What does the Module 2 dpo_loss helper evaluate?',
+        options: [
+          'A complete RLHF training loop that updates policy weights',
+          'Closed-form DPO binary cross-entropy on provided preferred/rejected log-probs',
+          'Symmetric int4 quantization scale factors',
+          'MoE expert capacity imbalance ratio'
+        ],
+        answerIndex: 1,
+        explanation: 'dpo_loss is a NumPy BCE toy on log-probs. Evidence keeps dpo_policy_trained=false unless you train outside the lab.',
+        concept: 'DPO Loss'
       }
     ],
     flashcards: [
@@ -562,7 +611,14 @@ print("mode", plan["gate"]["mode"], "rank", plan["lora"]["r"])
         term: 'Latent Diffusion',
         category: 'Generative Models',
         definition: 'A diffusion approach that performs the forward/reverse noising process in a compressed VAE latent space rather than directly in pixel (or waveform) space.',
-        keyTakeaway: 'Makes high-resolution multimodal generation practical for interactive agent tool calls.'
+        keyTakeaway: 'Makes high-resolution multimodal generation practical for interactive agent tool calls. Lab proves forward q_sample + DDIM reverse toys.'
+      },
+      {
+        id: 'fc2_dpo',
+        term: 'DPO Loss (toy)',
+        category: 'Alignment',
+        definition: 'Binary cross-entropy on β-scaled log-prob margins between preferred and rejected completions relative to a reference policy.',
+        keyTakeaway: 'Module 2 implements dpo_loss on provided log-probs — not a preference training loop.'
       },
       {
         id: 'fc2_4',

@@ -14,27 +14,33 @@ function makeSignal(n = 48): number[] {
   return x;
 }
 
-function qSample(x0: number[], t: number, T: number, seed: number): number[] {
+function qSampleParts(x0: number[], t: number, T: number, seed: number): { xt: number[]; eps: number[]; abar: number } {
   const abar = cosineAlphaBar(t, T);
-  // Deterministic pseudo-noise from seed + index for stable teaching viz
-  return x0.map((v, i) => {
+  const eps = x0.map((_, i) => {
     const noise = Math.sin(seed * 12.9898 + i * 78.233) * 43758.5453;
-    const eps = (noise - Math.floor(noise)) * 2 - 1;
-    return Math.sqrt(abar) * v + Math.sqrt(1 - abar) * eps;
+    return (noise - Math.floor(noise)) * 2 - 1;
   });
+  const xt = x0.map((v, i) => Math.sqrt(abar) * v + Math.sqrt(1 - abar) * eps[i]);
+  return { xt, eps, abar };
+}
+
+function predictX0(xt: number[], eps: number[], abar: number): number[] {
+  if (abar <= 1e-12) return xt.map(() => 0);
+  return xt.map((v, i) => (v - Math.sqrt(1 - abar) * eps[i]) / Math.sqrt(abar));
 }
 
 export const DiffusionSimulator: React.FC = () => {
   const T = 1000;
   const [t, setT] = useState(0);
   const [seed, setSeed] = useState(42);
+  const [showReverse, setShowReverse] = useState(true);
   const x0 = useMemo(() => makeSignal(), []);
-  const xt = useMemo(() => qSample(x0, t, T, seed), [x0, t, seed]);
-  const abar = cosineAlphaBar(t, T);
+  const { xt, eps, abar } = useMemo(() => qSampleParts(x0, t, T, seed), [x0, t, seed]);
+  const x0Hat = useMemo(() => predictX0(xt, eps, abar), [xt, eps, abar]);
   const snr = abar / Math.max(1e-12, 1 - abar);
 
-  const minY = Math.min(...xt, ...x0);
-  const maxY = Math.max(...xt, ...x0);
+  const minY = Math.min(...xt, ...x0, ...x0Hat);
+  const maxY = Math.max(...xt, ...x0, ...x0Hat);
   const span = Math.max(1e-6, maxY - minY);
 
   const toPoints = (arr: number[]) =>
@@ -54,13 +60,12 @@ export const DiffusionSimulator: React.FC = () => {
             <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
               <Waves size={18} />
             </div>
-            <h3 className="font-bold text-slate-800">Diffusion Forward Process Lab</h3>
+            <h3 className="font-bold text-slate-800">Diffusion Forward / Reverse Lab</h3>
           </div>
           <p className="text-sm text-slate-500 max-w-2xl">
-            Teaching estimate of the DDPM forward noising chain on a toy 1-D signal (not a real image
-            generator). Drag <code className="text-xs bg-slate-100 px-1 rounded">t</code> to watch
-            signal energy mix into noise under a cosine ᾱ schedule — the same idea Stable Diffusion
-            applies in latent space with CLIP text conditioning on the reverse step.
+            Teaching estimate of the DDPM forward noising chain on a toy 1-D signal, plus an algebraic
+            x̂₀ reverse estimate when the noise is known (lab: <code className="text-xs bg-slate-100 px-1 rounded">predict_x0_from_eps</code>
+            ). Not a real image generator.
           </p>
         </div>
         <span className="text-[10px] font-bold uppercase tracking-wide text-amber-700 bg-amber-50 border border-amber-200 px-2 py-1 rounded-full whitespace-nowrap">
@@ -94,6 +99,15 @@ export const DiffusionSimulator: React.FC = () => {
         </label>
       </div>
 
+      <label className="inline-flex items-center gap-2 text-sm text-slate-700">
+        <input
+          type="checkbox"
+          checked={showReverse}
+          onChange={(e) => setShowReverse(e.target.checked)}
+        />
+        Show reverse x̂₀ estimate (known ε)
+      </label>
+
       <div className="grid sm:grid-cols-3 gap-3 text-sm">
         <div className="rounded-lg bg-slate-50 border border-slate-100 p-3">
           <div className="text-xs text-slate-500 uppercase tracking-wide">ᾱ<sub>t</sub></div>
@@ -114,7 +128,7 @@ export const DiffusionSimulator: React.FC = () => {
       </div>
 
       <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-        <svg viewBox="0 0 100 100" className="w-full h-48" role="img" aria-label="Forward diffusion signal plot">
+        <svg viewBox="0 0 100 100" className="w-full h-48" role="img" aria-label="Diffusion signal plot">
           <polyline
             fill="none"
             stroke="#94a3b8"
@@ -123,26 +137,35 @@ export const DiffusionSimulator: React.FC = () => {
             points={toPoints(x0)}
           />
           <polyline fill="none" stroke="#4f46e5" strokeWidth="1.2" points={toPoints(xt)} />
+          {showReverse && (
+            <polyline fill="none" stroke="#059669" strokeWidth="1.0" points={toPoints(x0Hat)} />
+          )}
         </svg>
-        <div className="flex gap-4 text-xs text-slate-500 mt-2">
+        <div className="flex flex-wrap gap-4 text-xs text-slate-500 mt-2">
           <span className="flex items-center gap-1">
             <span className="inline-block w-4 border-t border-dashed border-slate-400" /> x₀ (clean)
           </span>
           <span className="flex items-center gap-1">
             <span className="inline-block w-4 border-t-2 border-indigo-600" /> x<sub>t</sub> (noised)
           </span>
+          {showReverse && (
+            <span className="flex items-center gap-1">
+              <span className="inline-block w-4 border-t-2 border-emerald-600" /> x̂₀ (reverse estimate)
+            </span>
+          )}
         </div>
       </div>
 
       <div className="text-xs text-slate-500 bg-indigo-50/60 border border-indigo-100 rounded-lg p-3 space-y-1">
         <p>
           <strong className="text-slate-700">Production map:</strong> real systems (SDXL, Flux) run this
-          chain in a VAE <em>latent</em> space, not pixels. The U-Net / DiT predicts ε or v, conditioned
-          on a CLIP (or T5) text embedding, often with classifier-free guidance.
+          chain in a VAE <em>latent</em> space. The U-Net / DiT predicts ε; lab DDIM η=0 is one algebraic step.
         </p>
         <p>
-          Lab counterpart: <code className="bg-white px-1 rounded">cosine_alpha_bar</code> +{' '}
-          <code className="bg-white px-1 rounded">q_sample</code> in Module 2 Architecture Mechanics.
+          Lab counterpart: <code className="bg-white px-1 rounded">cosine_alpha_bar</code>,{' '}
+          <code className="bg-white px-1 rounded">q_sample</code>,{' '}
+          <code className="bg-white px-1 rounded">predict_x0_from_eps</code>,{' '}
+          <code className="bg-white px-1 rounded">ddim_step</code> in Module 2.
         </p>
       </div>
     </div>
