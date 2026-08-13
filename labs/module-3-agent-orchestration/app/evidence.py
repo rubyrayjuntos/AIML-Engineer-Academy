@@ -7,6 +7,7 @@ from pathlib import Path
 
 from app.agent import CustomerSuccessAgent
 from app.dspy_compile import Example, bootstrap_fewshot, metric_exact_select
+from app.pydantic_ai_optional import build_live_structured_plan, maybe_run_live_sql
 from app.sql_agent import SqlAgent
 from app.sql_store import AnalyticsStore
 from app.store import Store
@@ -40,6 +41,8 @@ def generate(output: Path) -> dict:
         k=2,
     )
 
+    live_plan = maybe_run_live_sql(build_live_structured_plan())
+
     evidence = {
         "module": "module-3-agent-orchestration",
         "deterministic": True,
@@ -64,7 +67,11 @@ def generate(output: Path) -> dict:
             "sql_query": sql_result["result"]["sql_query"],
             "row_count": len(sql_result["rows"]),
             "repairs": sql_result["repairs"],
-            "note": "Pydantic SQLQueryResult seam + RO firewall; not a live pydantic_ai.Agent call",
+            "propose_meta": sql_result.get("propose_meta", {}),
+            "note": (
+                "Pydantic SQLQueryResult seam + RO firewall; live pydantic_ai.Agent "
+                "only when ACADEMY_LIVE_LLM=1 + API key (see claims.*)"
+            ),
         },
         "dspy_compile_stub": {
             "demo_count": len(compiled.demos),
@@ -73,18 +80,32 @@ def generate(output: Path) -> dict:
             ),
             "note": "Offline BootstrapFewShot teaching stub — no dspy package required",
         },
+        "live_structured_lane": {
+            "gate": live_plan.get("gate"),
+            "execution": live_plan.get("execution"),
+            "claims": live_plan.get("claims"),
+        },
+        "claims": {
+            "pydantic_ai_executed": bool(
+                live_plan.get("claims", {}).get("pydantic_ai_executed")
+            ),
+            "sql_structured_live": bool(
+                live_plan.get("claims", {}).get("sql_structured_live")
+            ),
+        },
         "persistence": store.load_run("evidence-run"),
         "rubric": [
-            {"competency": "SQLite customer data and FTS retrieval", "points": 9},
-            {"competency": "Grounded citations", "points": 9},
-            {"competency": "Pydantic structured output", "points": 9},
-            {"competency": "Stateful orchestration", "points": 9},
-            {"competency": "Persistent workflow state", "points": 9},
-            {"competency": "Retry and timeout policy", "points": 9},
+            {"competency": "SQLite customer data and FTS retrieval", "points": 8},
+            {"competency": "Grounded citations", "points": 8},
+            {"competency": "Pydantic structured output (deterministic + optional live)", "points": 10},
+            {"competency": "Stateful orchestration", "points": 8},
+            {"competency": "Persistent workflow state", "points": 8},
+            {"competency": "Retry and timeout policy", "points": 8},
             {"competency": "MCP stdio CS + SQL tools", "points": 10},
             {"competency": "Read-only SQL firewall and repair loop", "points": 10},
-            {"competency": "Human approval boundary", "points": 9},
-            {"competency": "DSPy compile stub + deterministic evidence", "points": 9},
+            {"competency": "Human approval boundary", "points": 8},
+            {"competency": "DSPy compile stub + deterministic evidence", "points": 8},
+            {"competency": "Claim-safe live structured-output gate", "points": 6},
             {"competency": "Threat model notes", "points": 8},
         ],
         "total_points": 100,

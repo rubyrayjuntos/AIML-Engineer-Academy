@@ -697,32 +697,33 @@ def dpo_loss(logp_w, logp_l, logp_ref_w, logp_ref_l, beta=0.1):
     slug: 'agent-orchestration',
     tag: 'MODULE 03',
     title: 'AI Agent Orchestration & Protocol Standards',
-    subtitle: 'ReAct, MCP, Structured SQL Agents & Browser Survey',
-    description: 'Build a Customer Success HITL agent and a read-only SQL/MCP lane with structured outputs and firewalls. Survey LangGraph, live PydanticAI, Streamable HTTP, and Playwright-style computer-use — those are theory or optional, not required CI builds.',
+    subtitle: 'ReAct, MCP, Structured SQL Agents & Optional Live PydanticAI',
+    description: 'Build a Customer Success HITL agent and a read-only SQL/MCP lane with structured outputs and firewalls. Optional live pydantic_ai.Agent(output_type=SQLQueryResult) requires ACADEMY_LIVE_LLM=1. Survey LangGraph, Streamable HTTP, and Playwright-style computer-use — those are theory or ungated-optional, not required CI builds.',
     estimatedHours: 18,
     prerequisites: ['Module 1 & 2', 'JSON Schema', 'Python Type Hints'],
     competencyContract: {
       explain: [
         'ReAct loops, DSPy-style prompt compilation (BootstrapFewShot teaching stub), RAG versus fine-tuning, and agent memory',
         'MCP primitives with stdio transport in lab; Streamable HTTP and other remote transports at survey level',
-        'Structured-output shapes (Pydantic models / PydanticAI-shaped validation), SQL read-only firewalls/repair, HITL approval; LangGraph and browser/computer-use action spaces at survey level'
+        'Structured-output shapes (Pydantic models / SQLQueryResult / PydanticAI-shaped validation), SQL read-only firewalls/repair, HITL approval; when the optional live Agent path is claim-safe (ACADEMY_LIVE_LLM); LangGraph and browser/computer-use action spaces at survey level'
       ],
       buildAndDebug: [
         'Build a CustomerSuccess HITL agent with Pydantic structured output (SQLQueryResult seam) — no live pydantic_ai package required in CI',
         'Connect an MCP stdio server/client to read-only SQLite CS and SQL tools with firewall/repair tests',
-        'Exercise a DSPy-style teaching stub; design (on paper / threat model) a governed browser-tool loop — no Playwright browser lab in CI'
+        'Exercise a DSPy-style teaching stub and the optional live structured-output plan/gate (ACADEMY_LIVE_LLM) without mislabeling CI evidence; design (on paper / threat model) a governed browser-tool loop — no Playwright browser lab in CI'
       ],
       evidenceRequired: [
         'Runnable agent repository and MCP stdio protocol trace',
         'Agent tests covering CS HITL governance plus SQL RO firewall/repair',
-        'Threat model covering tool and SQL surfaces; optional browser IPI notes at survey level (not a Playwright lab deliverable)'
+        'Threat model covering tool and SQL surfaces; optional browser IPI notes at survey level (not a Playwright lab deliverable)',
+        'Evidence JSON with claims.pydantic_ai_executed / sql_structured_live false by default'
       ]
     },
     objectives: [
       'Apply ReAct loop mechanics in the CustomerSuccess HITL lab (explain reflection loops; do not claim mastery of all agent patterns)',
       'Use a DSPy-style metric + trainset BootstrapFewShot teaching stub instead of vibe-only prompt edits',
       'Implement MCP servers/clients over stdio locally; explain Streamable HTTP remote transports at survey level',
-      'Validate tool outputs with Pydantic structured types (PydanticAI-shaped); live pydantic_ai runtime is optional/out of CI',
+      'Validate tool outputs with Pydantic structured types (SQLQueryResult); optionally run live pydantic_ai when ACADEMY_LIVE_LLM=1 — otherwise survey-level only',
       'Align text-to-SQL with schema tools, read-only execution, and repair loops',
       'Explain LangGraph-style cyclic state machines and HITL nodes at survey level (no LangGraph code in lab)',
       'Explain governed browser / computer-use agents (least-privilege tools, a11y observations, HITL writes) at survey level — no Playwright lab'
@@ -768,14 +769,14 @@ def dpo_loss(logp_w, logp_l, logp_ref_w, logp_ref_l, beta=0.1):
         title: '3.4 Type-Safe Agents: PydanticAI, LangGraph & Text-to-SQL',
         content: `Production agent frameworks must enforce strict execution boundaries. **Required Module 3 lab** proves Pydantic-shaped outputs + SQL/MCP + HITL — not a live PydanticAI/LangGraph install in CI:
 
-- **PydanticAI (survey + reference sample):** Uses Python type hints and Pydantic \`output_type\` schemas with validation feedback retries. Lab CI validates the *shape*; live \`Agent\` runs are optional when an API key is present.
+- **PydanticAI (survey + optional live):** Uses Python type hints and Pydantic \`output_type\` schemas with validation feedback retries. Lab CI validates the *shape*; live \`Agent\` runs require \`ACADEMY_LIVE_LLM=1\` + API key via \`app/pydantic_ai_optional.py\`.
 - **LangGraph (survey only):** Directed cyclic graphs with checkpoints, branching, and human approval gates. No LangGraph dependency in the lab.
 - **Text-to-SQL topology (lab; aligns with System Design \`bp_sql_agent\`):**
   1. Schema minimizer / MCP \`get_table_schema\` loads only needed DDL.
   2. Agent emits a typed \`SQLQueryResult\` (explanation + SQL + confidence).
   3. Firewall rejects writes, \`PRAGMA\`, and statement stacking; enforce a query timeout.
   4. Execute on a **read-only** replica; on engine errors, feed the error back for a bounded repair loop.
-  5. Lab CI uses a deterministic \`propose()\` seam with the same schema — swap in live \`pydantic_ai.Agent\` when an API key is present.`
+  5. Lab CI uses a deterministic \`propose()\` seam. **Optional live path:** \`ACADEMY_LIVE_LLM=1\` + API key runs \`pydantic_ai.Agent(output_type=SQLQueryResult)\` via \`app/pydantic_ai_optional.py\` — evidence \`claims.pydantic_ai_executed\` flips only after a real run.`
       },
       {
         title: '3.5 Browser & Computer-Use Agents (Action Spaces, Observation, Governance)',
@@ -829,7 +830,7 @@ async def get_table_schema(ctx: RunContext[str], table_name: str) -> str:
 # Execution triggers automatic schema validation and auto-retry if JSON is malformed
 # result = agent.run_sync("Find total revenue for all users registered in 2026")
 `,
-        explanation: 'Reference PydanticAI pattern. Module 3 CI validates structured-output shapes and SQL/MCP firewalls without requiring a live PydanticAI Agent run; optional local demos may use a real model key.'
+        explanation: 'Reference PydanticAI pattern. Module 3 CI validates structured-output shapes and SQL/MCP firewalls without requiring a live PydanticAI Agent run; optional live Agent runs only with ACADEMY_LIVE_LLM=1 + API key via app/pydantic_ai_optional.py.'
       },
       {
         id: 'c3_mcp',
@@ -940,35 +941,39 @@ print(compiled["instruction"], len(compiled["demos"]), metric_exact_select(train
         'cd labs/module-3-agent-orchestration',
         'python -m venv .venv && source .venv/bin/activate',
         'pip install -r requirements.txt',
+        'pytest -q  # 29 passed, 1 skipped (live_llm)',
+        'python -m app.evidence --output artifacts/evidence.json',
+        'python -m app.pydantic_ai_optional --output artifacts/live_structured_plan.json  # claims stay false',
+        'Optional live: pip install -r requirements-live.txt && ACADEMY_LIVE_LLM=1 XAI_API_KEY=... python -m app.pydantic_ai_optional'
+      ],
+      validationCommands: [
         'pytest -q',
         'python -m app.evidence --output artifacts/evidence.json',
-        'Optionally seed DBs and run python -m app.mcp_client to inspect the live stdio MCP lifecycle (CS + SQL tools).'
+        'python -m app.pydantic_ai_optional --output artifacts/live_structured_plan.json'
       ],
-      validationCommands: ['pytest -q', 'python -m app.evidence --output artifacts/evidence.json'],
-      expectedOutput: '22 passed; evidence shows CS awaiting_approval -> approved plus sql_mcp_lane status ok.',
+      expectedOutput: '29 passed, 1 skipped; evidence claims.pydantic_ai_executed=false by default',
       starterCode: {
         id: 'lab3_starter',
-        title: 'SQL Lane Smoke + CS Approval Gate',
+        title: 'Optional Live Structured-Output Plan',
         language: 'python',
-        filename: 'labs/module-3-agent-orchestration/app/sql_agent.py',
-        code: `from app.sql_agent import SqlAgent
+        filename: 'labs/module-3-agent-orchestration/app/pydantic_ai_optional.py',
+        code: `from app.pydantic_ai_optional import build_live_structured_plan, maybe_run_live_sql
+from app.sql_agent import SqlAgent
 from app.sql_store import AnalyticsStore
-from app.dspy_compile import Example, bootstrap_fewshot
 
+# Default CI path — deterministic propose + RO firewall
 store = AnalyticsStore("analytics.db")
 store.initialize(); store.seed()
 result = SqlAgent(store).run("What is total order revenue?")
-assert result["status"] == "ok"
+assert result["propose_meta"]["path"] == "deterministic"
 print(result["result"]["sql_query"], result["rows"])
 
-compiled = bootstrap_fewshot(
-    [Example("count users", "SELECT COUNT(*) FROM users")],
-    seed_instruction="Emit one read-only SELECT.",
-    k=1,
-)
-print(compiled.render())
+# Optional live track plan (no network unless ACADEMY_LIVE_LLM=1 + key)
+plan = maybe_run_live_sql(build_live_structured_plan())
+assert plan["claims"]["pydantic_ai_executed"] is False
+print(plan["execution"]["status"], plan["gate"]["mode"])
 `,
-        explanation: 'Smoke-checks the SQLQueryResult seam, RO executor, and DSPy compile stub alongside the existing Customer Success HITL path.'
+        explanation: 'Required path stays offline. Live pydantic_ai.Agent(output_type=SQLQueryResult) only runs when ACADEMY_LIVE_LLM=1 and an API key are set; claims flip only after a real execution.'
       }
     },
     quizzes: [
