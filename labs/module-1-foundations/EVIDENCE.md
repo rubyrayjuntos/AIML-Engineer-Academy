@@ -12,7 +12,7 @@ concrete artifacts that satisfy it.
 | Criterion | Evidence |
 | :--- | :--- |
 | Async I/O vs compute-bound work; REST/gRPC/SSE/WebSocket tradeoffs | `app/main.py` — `token_generator` is an async generator that yields SSE frames without blocking the event loop. |
-| Data leakage, class imbalance, bias-variance, precision/recall/F1 | Covered in Module 1 curriculum sections 1.1–1.2 (see `src/data/curriculumData.ts`). |
+| Data leakage, class imbalance, bias-variance, precision/recall/F1 | **Lab:** `app/leakage_clinic.py` + `tests/test_leakage_clinic.py` (contamination, target leak, preprocess leak, honest held-out P/R/F1). Curriculum section 1.2. |
 | Sparse vs dense retrieval and reproducible containers | Dockerfile uses a pinned multi-stage build; curriculum section 1.2 addresses vectorization. |
 
 ### Build & Debug
@@ -21,14 +21,15 @@ concrete artifacts that satisfy it.
 | :--- | :--- |
 | Build an async FastAPI streaming service | `app/main.py` — FastAPI app with `/health` and `/api/v1/generate/stream` endpoints. |
 | Build a Pandas/scikit-learn cleaning pipeline and TF-IDF baseline | `app/pipeline.py` — loads `data/prompts.csv`, applies Pandas text cleaning, stratified 80/20 split, TF-IDF vectorization (500 features, unigrams + bigrams), Logistic Regression classifier, and prints a classification report with precision/recall/F1 per class. |
-| Test and containerize the service with a multi-stage Docker build | `Dockerfile` (multi-stage, non-root, health-checked) + `tests/` (9 pytest cases). |
+| Run leakage & metrics clinic | `app/leakage_clinic.py` — forced contamination, target-leak feature, fit-on-full TF-IDF, detectors, and honest held-out P/R/F1. |
+| Test and containerize the service with a multi-stage Docker build | `Dockerfile` (multi-stage, non-root, health-checked) + `tests/` (30 pytest cases: API + pipeline + leakage clinic). |
 
 ### Evidence Required
 
 | Criterion | Artifact | Status |
 | :--- | :--- | :--- |
 | Runnable repository and Dockerfile | `app/`, `Dockerfile`, `requirements.txt` | ✅ |
-| Automated test results and evaluation report | CI uploads `test-results.xml` artifact on every run | ✅ |
+| Automated test results and evaluation report | CI uploads `test-results.xml`; `python -m app.pipeline` + `python -m app.leakage_clinic` print held-out and clinic findings | ✅ |
 | Semantic version tag | Create a Git tag after CI passes on `main`: `git tag v1.0.0 <sha> && git push origin v1.0.0`. The tag name `v1.0.0` matches the `version` string in `app/main.py`. A plain `version=` string inside application metadata is not a release tag. | ⬜ (tag must be pushed by the author after merge) |
 
 ---
@@ -76,6 +77,17 @@ concrete artifacts that satisfy it.
 | `test_pipeline_returns_report_for_all_label_classes` | Classification report contains F1 for every class |
 | `test_vectorizer_vocabulary_size_respects_max_features` | `max_features` cap is honoured by the vectorizer |
 
+### Leakage clinic tests (`tests/test_leakage_clinic.py`)
+
+| Test | What It Validates |
+| :--- | :--- |
+| Overlap detector / contaminated frame | Exact string overlap API + duplicate injection |
+| Forced contamination | Polluted test accuracy **exceeds** clean held-out accuracy |
+| Target leak flag + inflate | `post_outcome_code` flagged; leaky macro-F1 ≫ ablated |
+| Preprocess leak | Fit-on-full TF-IDF vocab or IDF differs from train-only |
+| Held-out P/R/F1 | Per-class + macro keys present; helper matches expectations |
+| Clinic determinism + report | Stable metrics under `random_state=42`; CLI report sections |
+
 ---
 
 ## CI/CD Pipeline
@@ -84,11 +96,9 @@ Workflow: `.github/workflows/module-1-foundations-lab.yml`
 
 Steps executed on every push and pull request:
 
-1. `npm ci` — reproducible frontend dependency install
-2. `npm run lint` — TypeScript type-check (zero errors gate)
-3. `npm run build` — Vite + esbuild production bundle
-4. `pip install -r requirements.txt` — lab Python dependencies (includes pandas, scikit-learn)
-5. `pytest -q --junitxml=test-results.xml` — run all 19 lab tests (API + pipeline)
-6. `python -m app.pipeline` — executes the TF-IDF pipeline end-to-end and prints the classification report
-7. Upload `test-results.xml` as a named artifact (available even on failure)
-8. `docker build` — validates the hardened multi-stage Dockerfile builds cleanly
+1. `pip install -r requirements.txt` — lab Python dependencies (includes pandas, scikit-learn)
+2. `pytest -q --junitxml=test-results.xml` — run all lab tests (API + pipeline + leakage clinic; **30 passed**)
+3. `python -m app.pipeline` — executes the TF-IDF pipeline end-to-end and prints the classification report
+4. `python -m app.leakage_clinic` — prints contamination / target-leak / preprocess-leak vs honest P/R/F1
+5. Upload `test-results.xml` as a named artifact (available even on failure)
+6. `docker build` — validates the hardened multi-stage Dockerfile builds cleanly
