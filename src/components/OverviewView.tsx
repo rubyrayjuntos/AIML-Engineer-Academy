@@ -159,7 +159,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({ progress, onSelectMo
         <div className="flex items-center justify-between mb-6">
           <div>
             <h2 className="text-xl font-bold text-slate-900">Training Modules Roadmap</h2>
-            <p className="text-xs text-slate-500">Master production-grade AI engineering step by step.</p>
+            <p className="text-xs text-slate-500">Build, measure, and explain AI systems — with competencies that match what labs prove.</p>
           </div>
         </div>
 
