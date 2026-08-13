@@ -1,6 +1,6 @@
 # Module 3 – Governed Agent Orchestration Lab
 
-This lab has two aligned lanes:
+This lab has three aligned lanes:
 
 1. **Customer Success Autopilot** — retrieve account evidence, emit a typed
    churn-risk recommendation, persist workflow state, and stop at a human
@@ -8,6 +8,10 @@ This lab has two aligned lanes:
 2. **Read-only SQL / MCP lane** — `SQLQueryResult` structured output (PydanticAI
    `output_type` shape), SQL firewall, analytics SQLite, MCP tools
    `get_table_schema` / `execute_readonly_sql`, plus a DSPy-style compile stub.
+3. **Browser micro-lab (stub DOM)** — least-privilege tools (`navigate` / `click` /
+   `type` / `scroll` / `extract_a11y`), origin allowlist, a11y observations,
+   IPI quarantine, and HITL before consequential clicks. Optional Playwright
+   behind `ACADEMY_BROWSER=1`.
 
 ## What is real
 
@@ -17,6 +21,7 @@ This lab has two aligned lanes:
 - read-only MCP tools (CS + SQL) over the local `stdio` transport
 - SQL injection / stacking / write rejection
 - offline DSPy BootstrapFewShot teaching stub (`app/dspy_compile.py`)
+- **browser stub runtime** over `fixtures/vendor_portal.html` (no browser binary in CI)
 - deterministic tests and machine-readable evidence
 - **optional** live `pydantic_ai.Agent(output_type=SQLQueryResult)` behind
   `ACADEMY_LIVE_LLM=1` (never in default CI)
@@ -26,6 +31,8 @@ the curriculum’s PydanticAI structured-output shape. The optional live track
 swaps the SQL propose seam for a hosted Agent when gated — schemas, firewall,
 and MCP boundaries stay unchanged. Evidence `claims.pydantic_ai_executed` /
 `claims.sql_structured_live` stay **false** unless a live run succeeded.
+Default CI never launches Playwright. Evidence `claims.playwright_executed`
+stays **false** unless `ACADEMY_BROWSER=1` succeeds.
 
 ## Run (required offline path)
 
@@ -37,11 +44,13 @@ pip install -r requirements.txt
 pytest -q
 python -m app.evidence --output artifacts/evidence.json
 python -m app.pydantic_ai_optional --output artifacts/live_structured_plan.json
+python -m app.browser_optional --output artifacts/browser_plan.json
 ```
 
-Expected test result: **29 passed, 1 skipped** (`live_llm` network test).
+Expected test result: **40 passed, 2 skipped** (`live_llm` + `browser` markers).
 
-Evidence `claims.*` stay false on this path.
+Evidence `claims.*` stay false on this path (`pydantic_ai_executed`,
+`sql_structured_live`, `playwright_executed`).
 
 ## Optional live structured-output track
 
@@ -58,6 +67,16 @@ pytest -q -m live_llm           # runs the network-marked case
 
 Keys alone never trigger live calls — `ACADEMY_LIVE_LLM=1` is required.
 
+## Optional Playwright track
+
+```bash
+pip install -r requirements-browser.txt
+playwright install chromium
+export ACADEMY_BROWSER=1
+python -m app.browser_optional --output artifacts/browser_plan.json
+pytest -q -m browser
+```
+
 ## Optional MCP lifecycle smoke
 
 ```bash
@@ -69,5 +88,6 @@ python -m app.mcp_client
 ## Assessment rubric (100 points)
 
 Competencies recorded in the evidence artifact cover CS retrieval/governance,
-MCP CS+SQL tools, read-only SQL firewall + repair, DSPy compile stub,
-claim-safe live structured-output gating, and threat-model/evidence hygiene.
+MCP CS+SQL tools, read-only SQL firewall + repair, browser stub governance
+(allowlist / a11y / IPI / HITL), DSPy compile stub, claim-safe live
+structured-output and Playwright gating, and threat-model/evidence hygiene.
