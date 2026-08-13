@@ -27,12 +27,43 @@ class SQLQueryResult(BaseModel):
 class SqlAgent:
     def __init__(self, store: AnalyticsStore):
         self.store = store
+        self._last_propose_meta: dict = {"path": "deterministic", "live_attempted": False}
 
     def schema_for(self, table: str) -> str:
         return self.store.schema_for(table)
 
+    def last_propose_meta(self) -> dict:
+        """Metadata about whether the last propose() used live or deterministic path."""
+        return dict(self._last_propose_meta)
+
     def propose(self, nl_question: str) -> SQLQueryResult:
-        """Deterministic proposer — mirrors PydanticAI structured output."""
+        """Propose a typed SQLQueryResult.
+
+        Default path is deterministic (CI-safe). When ``ACADEMY_LIVE_LLM=1`` and
+        an API key are set, optionally delegates to a live ``pydantic_ai.Agent``
+        with ``output_type=SQLQueryResult``, falling back to templates on error.
+        """
+        schemas = {t: self.schema_for(t) for t in self.store.list_tables()}
+
+        def _deterministic() -> SQLQueryResult:
+            return self._propose_deterministic(nl_question)
+
+        try:
+            from app.pydantic_ai_optional import propose_sql_with_optional_live
+
+            draft, meta = propose_sql_with_optional_live(
+                nl_question,
+                schemas=schemas,
+                deterministic_fallback=_deterministic,
+            )
+            self._last_propose_meta = meta
+            return draft
+        except Exception:  # noqa: BLE001 - never break CI propose path
+            self._last_propose_meta = {"path": "deterministic", "live_attempted": False}
+            return _deterministic()
+
+    def _propose_deterministic(self, nl_question: str) -> SQLQueryResult:
+        """Rule/template stand-in for a hosted pydantic_ai.Agent."""
         q = nl_question.lower()
         if "revenue" in q or "total" in q and "order" in q:
             return SQLQueryResult(
@@ -87,6 +118,7 @@ class SqlAgent:
     def run(self, nl_question: str, max_repairs: int = 2) -> dict:
         schemas = {t: self.schema_for(t) for t in self.store.list_tables()}
         draft = self.propose(nl_question)
+        propose_meta = self.last_propose_meta()
         repairs = 0
         last_error: str | None = None
         while True:
@@ -100,6 +132,7 @@ class SqlAgent:
                     "rows": rows,
                     "repairs": repairs,
                     "error": last_error,
+                    "propose_meta": propose_meta,
                 }
             except Exception as exc:  # noqa: BLE001 - teaching repair loop
                 last_error = str(exc)
@@ -111,6 +144,7 @@ class SqlAgent:
                         "rows": [],
                         "repairs": repairs,
                         "error": last_error,
+                        "propose_meta": propose_meta,
                     }
                 draft = self.validate_and_repair(draft, last_error, repairs)
                 repairs += 1
