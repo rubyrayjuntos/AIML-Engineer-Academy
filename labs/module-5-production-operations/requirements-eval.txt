@@ -1,0 +1,6 @@
+# Optional DeepEval extras — do NOT install in default CI.
+#   pip install -r requirements-eval.txt
+#   export ACADEMY_EVAL=1
+#   export XAI_API_KEY=...   # or OPENAI_API_KEY
+#   python -m app.deepeval_optional
+deepeval>=1.0.0

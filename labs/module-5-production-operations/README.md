@@ -1,18 +1,20 @@
 # Module 5 – Evaluation, Observability, Release, and Rollback Lab
 
-This lab implements the production control plane around a model release. It runs locally and in CI without cloud credentials, while generating deployment plans that map directly to Azure AI Foundry managed online endpoints and Databricks model-serving endpoints. It never claims that CI deployed paid cloud infrastructure.
+This lab implements the production control plane around a model release. The
+**required** path runs locally and in CI without cloud credentials. Optional
+DeepEval / Promptfoo / Hugging Face / Render tracks are opt-in and claim-gated.
 
 ## Controls exercised
 
 - immutable model versions and artifact checksum verification
-- deterministic faithfulness, relevancy, safety, latency, and reliability gates
+- offline EDD helpers (`app/eval_offline.py`) feeding faithfulness/relevancy/safety/latency/reliability gates
+- Promptfoo-shaped plan validation (`app/promptfoo_plan.py`) without Node in CI
 - candidate → canary → production promotion with an append-only audit trail
-- telemetry summaries for latency, errors, quality, drift, token use, and cost
-- alerts tied to SLO and quality thresholds
-- tested rollback that restores the prior production version
-- credential-free Azure AI Foundry and Databricks deployment plans
+- telemetry summaries + SLO/quality alerts and tested rollback
+- Azure AI Foundry / Databricks / **Hugging Face** / **Render** deployment plans
+- honest evidence claims (`*_deployed` / `*_executed` false by default)
 
-## Run
+## Run (required)
 
 ```bash
 cd labs/module-5-production-operations
@@ -21,13 +23,27 @@ source .venv/bin/activate
 pip install -r requirements.txt
 pytest -q
 python -m app.evidence --output artifacts/evidence.json
-python -m json.tool artifacts/evidence.json >/dev/null
 ```
+
+Expected: **24 passed**
+
+## Optional tracks (never enable in Cloud Agent / default CI)
+
+| Track | Env | Entry |
+|---|---|---|
+| DeepEval | `ACADEMY_EVAL=1` + `XAI_API_KEY` or `OPENAI_API_KEY` | `pip install -r requirements-eval.txt` then `python -m app.deepeval_optional` |
+| Promptfoo | `ACADEMY_PROMPTFOO=1` | `./scripts/run_promptfoo_optional.sh` |
+| Hugging Face / Render | `ACADEMY_DEPLOY=1` + `HF_TOKEN` / `RENDER_API_KEY` | `app.deploy_optional.maybe_deploy(...)` |
+
+Claims flip to executed/deployed **only** after a successful live call.
 
 ## Cloud execution boundary
 
-The local control plane is the acceptance baseline. A real deployment must replace the plan adapter with the official Azure ML/AI Foundry or Databricks SDK, use workload identity rather than embedded secrets, store model versions in the provider registry, export OpenTelemetry to an approved backend, and attach provider-generated deployment IDs to the release audit event. Deployment requires an explicit human approval outside this lab.
+Azure/Databricks remain plan adapters here. HF/Render may perform gated live
+calls when credentials are present. Never embed secrets in evidence JSON.
 
 ## Assessment rubric (100 points)
 
-Ten equally weighted competencies: immutable registry, artifact integrity, offline evaluation, promotion gates, canary sequencing, telemetry, drift/quality alerts, cost evidence, audited rollback, and truthful provider claims.
+Immutable registry, artifact integrity, offline evaluation, optional-tool honesty,
+promotion gates, canary sequencing, telemetry, alerts, audited rollback, truthful
+provider claims.

@@ -15,6 +15,7 @@ import { BrowserAgentSimulator } from './components/Simulators/BrowserAgentSimul
 import { SpeculativeDecodingSimulator } from './components/Simulators/SpeculativeDecodingSimulator';
 import { SqlAgentSimulator } from './components/Simulators/SqlAgentSimulator';
 import { GpuTrackSimulator } from './components/Simulators/GpuTrackSimulator';
+import { EvalDeploySimulator } from './components/Simulators/EvalDeploySimulator';
 import { SystemDesignCanvas } from './components/SystemDesignCanvas';
 import { FlashcardsView } from './components/FlashcardsView';
 import { QuizView } from './components/QuizView';
@@ -197,12 +198,13 @@ export default function App() {
                   Systems & Architecture Simulators
                 </h1>
                 <p className="text-sm text-slate-500 mt-1">
-                  Test vLLM PagedAttention, optional GPU-track gating, speculative decoding estimates, diffusion forward noising, ReAct and browser/computer-use loops, typed SQL/MCP + DSPy compile, Model Context Protocol (MCP), RAG vs Fine-tuning matrix, and Indirect Prompt Injection firewalls.
+                  Test vLLM PagedAttention, optional GPU-track gating, eval/deploy claim gates, speculative decoding estimates, diffusion forward noising, ReAct and browser/computer-use loops, typed SQL/MCP + DSPy compile, Model Context Protocol (MCP), RAG vs Fine-tuning matrix, and Indirect Prompt Injection firewalls.
                 </p>
               </div>
 
               <VllmSimulator />
               <GpuTrackSimulator />
+              <EvalDeploySimulator />
               <SpeculativeDecodingSimulator />
               <DiffusionSimulator />
               <ReactAgentSimulator />
