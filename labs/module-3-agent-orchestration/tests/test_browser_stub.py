@@ -119,6 +119,7 @@ def test_browser_plan_defaults_unexecuted(monkeypatch):
     monkeypatch.delenv("ACADEMY_BROWSER", raising=False)
     plan = maybe_run_browser_track(build_browser_plan())
     assert plan["claims"]["playwright_executed"] is False
+    assert plan["claims"].get("playwright_smoke_title") is False
     assert plan["execution"]["status"] == "skipped"
     assert plan["stub_demo"]["status"] == "awaiting_approval"
 
@@ -135,4 +136,5 @@ def test_playwright_optional_network():
     plan = maybe_run_browser_track(build_browser_plan())
     if plan["execution"]["status"] != "ran":
         pytest.skip(plan["execution"].get("reason", "playwright unavailable"))
-    assert plan["claims"]["playwright_executed"] is True
+    assert plan["claims"]["playwright_executed"] is False
+    assert plan["claims"]["playwright_smoke_title"] is True

@@ -6,7 +6,7 @@
 | SQL injection | Callers cannot submit SQL; tool queries are parameterized | Fuzz query parsing and add SQLite authorizer callbacks |
 | Prompt injection in support text | Retrieved text is treated as evidence, never instructions; no outbound tool exists | Dual-LLM quarantine on browser lane (`app/dual_llm.py`); extend to CS retrieval if needed |
 | Hallucinated evidence | Recommendation requires citations whose IDs originate in retrieval | Add citation-entailment evaluation and abstention thresholds |
-| Runaway tools | Per-call timeout and finite retry budget | Add process isolation, circuit breakers, and telemetry |
+| Runaway tools | Per-call wait budget and finite retry count (`future.result` timeout; does not kill the worker thread) | Add process isolation / hard kill, circuit breakers, and telemetry |
 | Invalid model output | Pydantic validates types, bounds, and mandatory approval | Add model repair adapter with a hard retry ceiling |
 | Unauthorized intervention | Workflow stops at `awaiting_approval`; approval only records a decision | Add authenticated approver identity and immutable audit log |
 | MCP privilege escalation | MCP server exposes only two read-only tools over local stdio | Add capability tokens and Streamable HTTP authentication before remote use |

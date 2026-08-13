@@ -501,11 +501,11 @@ print("err reduced", float(np.mean((x_prev - x0)**2)) < float(np.mean((xt - x0)*
         'python -m venv .venv && source .venv/bin/activate',
         'pip install -r requirements.txt',
         'Implement TODOs in app/mechanics.py (lora_forward, int4 quant, GRPO, MoE, diffusion forward+reverse, DPO). Leave ACADEMY_SOLUTION unset.',
-        'pytest -q  # fails with NotImplementedError until TODOs are done; then 29 passed',
+        'pytest -q  # fails with NotImplementedError until TODOs are done; then 31 passed',
         'python -m app.evidence --output artifacts/evidence.json',
-        'CI / peek only: ACADEMY_SOLUTION=1 pytest -q  # overlays mechanics_reference.py (29 passed)'
+        'CI / peek only: ACADEMY_SOLUTION=1 pytest -q  # overlays mechanics_reference.py (31 passed)'
       ],
-      expectedOutput: '29 passed (after TODOs; or with ACADEMY_SOLUTION=1)',
+      expectedOutput: '31 passed (after TODOs; or with ACADEMY_SOLUTION=1)',
       starterCode: {
         id: 'lab2_starter',
         title: 'Scaffolded TODOs: Diffusion Reverse + DPO',
@@ -950,7 +950,7 @@ print(compiled["instruction"], len(compiled["demos"]), metric_exact_select(train
         'cd labs/module-3-agent-orchestration',
         'python -m venv .venv && source .venv/bin/activate',
         'pip install -r requirements.txt',
-        'pytest -q  # 47 passed, 3 skipped (live_llm + browser + dual_llm)',
+        'pytest -q  # 49 passed, 3 skipped (live_llm + browser + dual_llm)',
         'python -m app.evidence --output artifacts/evidence.json',
         'python -m app.pydantic_ai_optional --output artifacts/live_structured_plan.json  # claims stay false',
         'python -m app.browser_optional --output artifacts/browser_plan.json  # stub demo; claims.playwright_executed=false',
@@ -964,7 +964,7 @@ print(compiled["instruction"], len(compiled["demos"]), metric_exact_select(train
         'python -m app.browser_optional --output artifacts/browser_plan.json',
         'python -m app.dual_llm_optional --output artifacts/dual_llm_plan.json'
       ],
-      expectedOutput: '47 passed, 3 skipped; evidence claims.*_executed=false for live tracks; dual_llm_topology_exercised=true; browser_lane awaiting_approval',
+      expectedOutput: '49 passed, 3 skipped; evidence claims.*_executed=false for live tracks; dual_llm_topology_exercised=true; browser_lane awaiting_approval',
       starterCode: {
         id: 'lab3_starter',
         title: 'Browser Dual-LLM Quarantine + HITL',
@@ -1654,7 +1654,7 @@ jobs:
         'python -m app.evidence --output artifacts/evidence.json',
         'python -m app.canary_lab --mode quality_regression'
       ],
-      expectedOutput: '31 passed; evidence records gates, telemetry, bad_canary reject, Azure/Databricks/HF/Render plans, and claims.*_deployed/executed/cloud_canary false by default.',
+      expectedOutput: '32 passed; evidence records gates, telemetry, bad_canary reject, Azure/Databricks/HF/Render plans, and claims.*_deployed/executed/cloud_canary false by default.',
       starterCode: {
         id: 'lab5_starter',
         title: 'Offline EDD + Provider Plan Smoke',

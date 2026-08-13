@@ -93,6 +93,19 @@ def test_lora_forward_with_zero_adapter():
     np.testing.assert_allclose(out, expected, atol=1e-5)
 
 
+def test_lora_forward_applies_nonzero_adapter():
+    rng = np.random.default_rng(1)
+    W = rng.standard_normal((4, 8)).astype(np.float32)
+    A = rng.standard_normal((2, 8)).astype(np.float32)
+    B = rng.standard_normal((4, 2)).astype(np.float32)
+    x = rng.standard_normal((3, 8)).astype(np.float32)
+    alpha, rank = 16.0, 2
+    out = lora_forward(x, W, A, B, alpha=alpha, rank=rank)
+    expected = x @ W.T + (x @ A.T @ B.T) * (alpha / rank)
+    np.testing.assert_allclose(out, expected, atol=1e-5)
+    assert not np.allclose(out, x @ W.T, atol=1e-4)
+
+
 # ---------------------------------------------------------------------------
 # Quantization
 # ---------------------------------------------------------------------------
@@ -143,6 +156,9 @@ def test_moe_routing_dispatch_shape():
     logits = rng.standard_normal((16, 4)).astype(np.float32)
     result = moe_routing(logits, top_k=2, num_experts=4, expert_capacity=10)
     assert result["dispatch_mask"].shape == (16, 4)
+    assert result["dispatch_mask"].sum() > 0
+    assert result["load_per_expert"].sum() == result["dispatch_mask"].sum()
+    assert result["imbalance_ratio"] >= 1.0
 
 
 def test_moe_routing_capacity_enforced():
@@ -151,6 +167,15 @@ def test_moe_routing_capacity_enforced():
     logits = rng.standard_normal((num_tokens, num_experts)).astype(np.float32)
     result = moe_routing(logits, top_k=2, num_experts=num_experts, expert_capacity=capacity)
     assert np.all(result["load_per_expert"] <= capacity)
+
+
+def test_moe_routing_drops_when_capacity_is_tight():
+    logits = np.zeros((32, 4), dtype=np.float32)
+    logits[:, 0] = 10.0
+    result = moe_routing(logits, top_k=1, num_experts=4, expert_capacity=5)
+    assert result["load_per_expert"][0] == 5
+    assert result["dropped_tokens"] == 27
+    assert int(result["dispatch_mask"].sum()) == 5
 
 
 # ---------------------------------------------------------------------------

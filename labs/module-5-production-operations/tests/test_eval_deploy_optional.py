@@ -58,6 +58,7 @@ def test_hf_and_render_provider_plans():
     hf = deployment_plan("huggingface", "models:/risk/1", "staging")
     render = deployment_plan("render", "models:/risk/1", "production")
     assert hf["provider"] == "huggingface" and hf["claims"]["huggingface_deployed"] is False
+    assert hf["claims"]["huggingface_api_ok"] is False
     assert render["provider"] == "render" and render["claims"]["render_deployed"] is False
 
 
@@ -66,6 +67,7 @@ def test_deploy_optional_skips_without_flag(monkeypatch):
     result = maybe_deploy("huggingface", "models:/risk/1")
     assert result["execution"]["status"] == "skipped"
     assert result["claims"]["huggingface_deployed"] is False
+    assert result["claims"]["huggingface_api_ok"] is False
 
 
 def test_build_deploy_plan_rejects_unknown():

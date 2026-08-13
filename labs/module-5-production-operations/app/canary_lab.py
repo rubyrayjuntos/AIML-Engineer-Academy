@@ -9,28 +9,30 @@ from __future__ import annotations
 import hashlib
 import json
 import pathlib
-from dataclasses import dataclass
 from typing import Literal
 
 from app.eval_offline import evaluation_from_case
-from app.release import Evaluation, ModelVersion, Policy, ReleaseStore, evaluate_gates
+from app.release import (
+    Evaluation,
+    ModelVersion,
+    ReleaseStore,
+    canary_regression_gates,
+)
 from app.telemetry import Observation, alerts, summarize
 
 _LAB_ROOT = pathlib.Path(__file__).resolve().parent.parent
 DEFAULT_FIXTURE = _LAB_ROOT / "fixtures" / "canary_cases.json"
 
-CanaryMode = Literal["good", "quality_regression", "latency_regression", "safety_regression"]
+CanaryMode = Literal[
+    "good",
+    "quality_regression",
+    "mild_quality_regression",
+    "latency_regression",
+    "safety_regression",
+]
 
 
-@dataclass(frozen=True)
-class CanaryPolicy:
-    """Absolute Policy gates plus optional deltas vs a healthy baseline."""
-
-    absolute: Policy = Policy()
-    max_faithfulness_drop: float = 0.05
-    max_relevancy_drop: float = 0.05
-    max_safety_drop: float = 0.02
-    max_p95_ratio: float = 1.5
+# CanaryPolicy lives in app.release so promote() can apply delta gates.
 
 
 def load_canary_cases(path: pathlib.Path = DEFAULT_FIXTURE) -> list[dict]:
@@ -85,26 +87,6 @@ def observations_from_canary_evals(evals: list[Evaluation]) -> list[Observation]
         )
         for e in evals
     ]
-
-
-def canary_regression_gates(
-    baseline: Evaluation,
-    canary: Evaluation,
-    policy: CanaryPolicy | None = None,
-) -> dict[str, bool]:
-    """Absolute release gates plus delta checks vs a healthy baseline."""
-    policy = policy or CanaryPolicy()
-    absolute = evaluate_gates(canary, policy.absolute)
-    deltas = {
-        "faithfulness_delta": (baseline.faithfulness - canary.faithfulness)
-        <= policy.max_faithfulness_drop,
-        "relevancy_delta": (baseline.relevancy - canary.relevancy)
-        <= policy.max_relevancy_drop,
-        "safety_delta": (baseline.safety - canary.safety) <= policy.max_safety_drop,
-        "latency_ratio": canary.p95_ms
-        <= max(policy.absolute.max_p95_ms, baseline.p95_ms * policy.max_p95_ratio),
-    }
-    return {**absolute, **deltas}
 
 
 def run_bad_canary_scenario(
@@ -164,7 +146,7 @@ def run_bad_canary_scenario(
     blocked = False
     block_error: str | None = None
     try:
-        store.promote(v2.version, canary_eval, actor, "production")
+        store.promote(v2.version, canary_eval, actor, "production", baseline=baseline_eval)
     except ValueError as exc:
         blocked = True
         block_error = str(exc)
@@ -211,7 +193,7 @@ def run_good_canary_control(store: ReleaseStore, *, actor: str = "canary-lab") -
     )
     store.register(model, actor)
     store.promote(model.version, baseline_eval, actor, "canary")
-    store.promote(model.version, window, actor, "production")
+    store.promote(model.version, window, actor, "production", baseline=baseline_eval)
     return {
         "mode": "good",
         "active": store.state()["active"],
@@ -228,7 +210,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--mode",
         default="quality_regression",
-        choices=["quality_regression", "latency_regression", "safety_regression"],
+        choices=["quality_regression", "mild_quality_regression", "latency_regression", "safety_regression"],
     )
     parser.add_argument("--output", type=Path, default=None)
     parser.add_argument(

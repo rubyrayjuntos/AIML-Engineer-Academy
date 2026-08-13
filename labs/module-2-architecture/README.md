@@ -35,7 +35,7 @@ python -m app.qlora_optional --output artifacts/qlora_plan.json
 
 Until the TODOs are filled, mechanics tests fail with `NotImplementedError`.
 
-After you implement the TODOs, expect **29 passed** (same as CI solution mode).
+After you implement the TODOs, expect **31 passed** (same as CI solution mode).
 
 ## Solution mode (CI / peek at reference)
 
@@ -48,7 +48,7 @@ ACADEMY_SOLUTION=1 python -m app.evidence --output artifacts/evidence.json
 import time. Use this to verify the lab harness, not to skip the exercises.
 Do **not** copy-paste the reference into a PR that claims you did the work.
 
-Expected under solution mode: **29 passed**.
+Expected under solution mode: **31 passed**.
 
 Evidence stays honest: `claims.gpu_used` / `qlora_executed` / `diffusion_image_generated` /
 `dpo_policy_trained` are **false** on this path. Reverse diffusion and DPO are

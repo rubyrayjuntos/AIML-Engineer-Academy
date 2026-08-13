@@ -23,16 +23,7 @@ import { AiMentorModal } from './components/AiMentorModal';
 import { CertificateModal } from './components/CertificateModal';
 import { SearchResultsView } from './components/SearchResultsView';
 import { Sliders } from 'lucide-react';
-
-const defaultProgress = (): UserProgress => ({
-  completedModules: [],
-  labCompletions: {},
-  quizScores: {},
-  learnedFlashcards: [],
-  codeRunHistory: 0,
-  certificateGranted: false,
-  userLevel: 'Junior ML Dev'
-});
+import { defaultProgress, parseProgress } from './progress';
 
 export default function App() {
   const [activeView, setActiveView] = useState<string>('overview');
@@ -44,7 +35,7 @@ export default function App() {
     const saved = localStorage.getItem('ai_academy_progress');
     if (saved) {
       try {
-        return { ...defaultProgress(), ...JSON.parse(saved) };
+        return parseProgress(JSON.parse(saved)) ?? defaultProgress();
       } catch {
         /* ignore corrupt localStorage */
       }

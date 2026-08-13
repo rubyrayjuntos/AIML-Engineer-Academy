@@ -54,7 +54,7 @@ python -m app.browser_optional --output artifacts/browser_plan.json
 python -m app.dual_llm_optional --output artifacts/dual_llm_plan.json
 ```
 
-Expected test result: **47 passed, 3 skipped** (`live_llm` + `browser` + `dual_llm` markers).
+Expected test result: **49 passed, 3 skipped** (`live_llm` + `browser` + `dual_llm` markers).
 
 Evidence `claims.*` stay false on this path for live tracks (`pydantic_ai_executed`,
 `sql_structured_live`, `playwright_executed`, `dual_llm_live_executed`);

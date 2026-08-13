@@ -2,7 +2,7 @@
 Optional Hugging Face / Render deploy helpers.
 
 Plans are always available offline. Live API calls require ACADEMY_DEPLOY=1 and
-provider credentials. Claims flip to deployed=true only after a successful API OK.
+provider credentials. Claims flip to huggingface_api_ok after a Hub GET; huggingface_deployed stays false unless a real deploy API succeeds.
 """
 from __future__ import annotations
 
@@ -29,7 +29,7 @@ def huggingface_plan(model_uri: str, environment: str, repo: str | None = None) 
         "repo_id": repo_id,
         "identity": "hf-token",
         "environment": environment,
-        "claims": {"huggingface_deployed": False},
+        "claims": {"huggingface_deployed": False, "huggingface_api_ok": False},
     }
 
 
@@ -85,9 +85,14 @@ def maybe_deploy(provider: str, model_uri: str, environment: str = "staging") ->
         try:
             req = urllib.request.Request(url, headers={"Authorization": f"Bearer {token}"})
             with urllib.request.urlopen(req, timeout=30) as resp:  # noqa: S310
-                plan["execution"] = {"status": "ok", "http_status": resp.status, "mode": "hf_api_get"}
-                plan["claims"]["huggingface_deployed"] = True
-                plan["deployment_id"] = plan["repo_id"]
+                plan["execution"] = {
+                    "status": "ok",
+                    "http_status": resp.status,
+                    "mode": "hf_api_get",
+                    "note": "Hub GET is not a deploy; huggingface_deployed stays false",
+                }
+                plan["claims"]["huggingface_api_ok"] = True
+                plan["claims"]["huggingface_deployed"] = False
         except urllib.error.HTTPError as exc:
             plan["execution"] = {"status": "error", "http_status": exc.code, "reason": str(exc)}
         except Exception as exc:  # noqa: BLE001

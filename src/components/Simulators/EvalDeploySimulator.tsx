@@ -14,7 +14,8 @@ export const EvalDeploySimulator: React.FC = () => {
     () => ({
       deepeval_executed: academyEval && judgeKey,
       promptfoo_executed: promptfoo,
-      huggingface_deployed: academyDeploy && hfToken && apiOk,
+      huggingface_deployed: false,
+      huggingface_api_ok: academyDeploy && hfToken && apiOk,
       render_deployed: academyDeploy && renderKey && apiOk,
       offline_edd: true,
     }),
@@ -83,12 +84,13 @@ export const EvalDeploySimulator: React.FC = () => {
         </label>
       </div>
 
-      <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-3">
+      <div className="grid sm:grid-cols-2 lg:grid-cols-6 gap-3">
         {(
           [
             ['offline_edd', claims.offline_edd],
             ['deepeval_executed', claims.deepeval_executed],
             ['promptfoo_executed', claims.promptfoo_executed],
+            ['huggingface_api_ok', claims.huggingface_api_ok],
             ['huggingface_deployed', claims.huggingface_deployed],
             ['render_deployed', claims.render_deployed],
           ] as const

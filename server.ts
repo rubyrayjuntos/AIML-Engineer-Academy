@@ -11,24 +11,47 @@ const __dirname = path.dirname(__filename);
 const XAI_API_URL = 'https://api.x.ai/v1/chat/completions';
 const XAI_MODEL = process.env.XAI_MODEL || 'grok-4.6';
 const CHAT_RATE_LIMIT_WINDOW_MS = 60_000;
-const CHAT_RATE_LIMIT_MAX = Number(process.env.CHAT_RATE_LIMIT_MAX || 20);
+const MAX_RATE_BUCKETS = 4_096;
+const XAI_FETCH_TIMEOUT_MS = 30_000;
 const MAX_PROMPT_CHARS = 8_000;
 const MAX_HISTORY_MESSAGES = 8;
 const MAX_HISTORY_CHARS = 2_000;
+
+function parsePositiveInt(value: string | undefined, fallback: number): number {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : fallback;
+}
+
+const CHAT_RATE_LIMIT_MAX = parsePositiveInt(process.env.CHAT_RATE_LIMIT_MAX, 20);
+const TRUST_PROXY = process.env.TRUST_PROXY === '1';
 
 type RateBucket = { count: number; resetAt: number };
 const chatRateBuckets = new Map<string, RateBucket>();
 
 function clientIp(req: express.Request): string {
-  const forwarded = req.headers['x-forwarded-for'];
-  if (typeof forwarded === 'string' && forwarded.length > 0) {
-    return forwarded.split(',')[0].trim();
+  // Only honor X-Forwarded-For when Express trust proxy is enabled.
+  if (TRUST_PROXY) {
+    return req.ip || req.socket.remoteAddress || 'unknown';
   }
   return req.socket.remoteAddress || 'unknown';
 }
 
+function pruneChatRateBuckets(now: number): void {
+  for (const [ip, bucket] of chatRateBuckets) {
+    if (bucket.resetAt <= now) chatRateBuckets.delete(ip);
+  }
+  if (chatRateBuckets.size <= MAX_RATE_BUCKETS) return;
+  const extra = chatRateBuckets.size - MAX_RATE_BUCKETS;
+  let removed = 0;
+  for (const ip of chatRateBuckets.keys()) {
+    chatRateBuckets.delete(ip);
+    if (++removed >= extra) break;
+  }
+}
+
 function consumeChatRateLimit(ip: string): { allowed: boolean; retryAfterSec: number } {
   const now = Date.now();
+  pruneChatRateBuckets(now);
   const existing = chatRateBuckets.get(ip);
   if (!existing || existing.resetAt <= now) {
     chatRateBuckets.set(ip, { count: 1, resetAt: now + CHAT_RATE_LIMIT_WINDOW_MS });
@@ -52,6 +75,10 @@ function truncateText(value: unknown, maxChars: number): string {
 async function startServer() {
   const app = express();
   const PORT = 3000;
+
+  if (TRUST_PROXY) {
+    app.set('trust proxy', 1);
+  }
 
   app.use(express.json({ limit: '256kb' }));
 
@@ -138,7 +165,8 @@ Context module: ${safeContext}`;
           model: XAI_MODEL,
           messages,
           temperature: 0.7
-        })
+        }),
+        signal: AbortSignal.timeout(XAI_FETCH_TIMEOUT_MS)
       });
 
       if (!xaiResponse.ok) {
@@ -159,7 +187,10 @@ Context module: ${safeContext}`;
     } catch (err: any) {
       console.error('xAI Grok API Error:', err?.message || err);
       // Fallback response on error so user experience remains usable — do not leak upstream payloads
-      const fallbackText = generateFallbackAiResponse(req.body?.prompt, req.body?.context);
+      const fallbackText = generateFallbackAiResponse(
+        truncateText(req.body?.prompt, MAX_PROMPT_CHARS),
+        truncateText(req.body?.context, 200)
+      );
       return res.json({
         reply: `${fallbackText}\n\n*(Note: Powered by Curriculum Knowledge Engine; live Grok mentor is temporarily unavailable.)*`,
         source: 'curriculum_engine'
@@ -169,8 +200,11 @@ Context module: ${safeContext}`;
 
   // Code Simulation Runner Route
   app.post('/api/simulate-code', (req, res) => {
-    const { code, language, title } = req.body;
-    
+    try {
+    const code = typeof req.body?.code === 'string' ? req.body.code : '';
+    const language = typeof req.body?.language === 'string' ? req.body.language : '';
+    const title = typeof req.body?.title === 'string' ? req.body.title : '';
+
     // Simulate execution output
     let output = '';
     if (language === 'python') {
@@ -225,6 +259,11 @@ Accuracy: 0.964 | F1-Score: 0.958 | Loss: 0.042`;
     }
 
     res.json({ output, executionTimeMs: Math.floor(Math.random() * 80) + 120 });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error('simulate-code failed:', message);
+      res.status(500).json({ error: 'Simulation failed', output: '[ERROR] Simulation failed.' });
+    }
   });
 
   // Vite middleware in dev, static files in prod
@@ -249,7 +288,7 @@ Accuracy: 0.964 | F1-Score: 0.958 | Loss: 0.042`;
 }
 
 function generateFallbackAiResponse(prompt: string, context?: string): string {
-  const p = prompt.toLowerCase();
+  const p = String(prompt ?? '').toLowerCase();
   
   if (p.includes('flashattention') || p.includes('attention')) {
     return `### FlashAttention-3 & Memory Tiling Mechanics

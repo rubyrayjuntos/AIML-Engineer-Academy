@@ -16,7 +16,12 @@ class ToolFailure(RuntimeError):
 
 
 def execute_with_policy(fn: Callable, *args, retries: int = 2, timeout_seconds: float = 1.0):
-    """Run a tool with a bounded timeout and retry budget."""
+    """Run a tool with a wait budget and retry count.
+
+    Timeout bounds ``future.result`` only — it does not kill a running worker
+    thread. ``ThreadPoolExecutor.shutdown(wait=True)`` still waits for in-flight
+    work. This lab teaches the policy seam, not process isolation.
+    """
     last_error: Exception | None = None
     with ThreadPoolExecutor(max_workers=1) as pool:
         for _ in range(retries + 1):

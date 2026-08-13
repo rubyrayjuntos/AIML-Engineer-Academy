@@ -2,17 +2,18 @@
 from __future__ import annotations
 
 import sqlite3
+import time
 from pathlib import Path
 
 from app.sql_guard import enforce_timeout_budget, reject_dangerous_sql
 
 DDL: dict[str, str] = {
     "users": (
-        "CREATE TABLE users ("
+        "CREATE TABLE IF NOT EXISTS users ("
         "id INTEGER PRIMARY KEY, name TEXT NOT NULL, created_at TEXT NOT NULL)"
     ),
     "orders": (
-        "CREATE TABLE orders ("
+        "CREATE TABLE IF NOT EXISTS orders ("
         "id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL, amount REAL NOT NULL, "
         "FOREIGN KEY(user_id) REFERENCES users(id))"
     ),
@@ -57,8 +58,22 @@ class AnalyticsStore:
         return sorted(DDL)
 
     def execute_readonly(self, sql: str, timeout_seconds: float = 5.0) -> list[dict]:
-        enforce_timeout_budget(timeout_seconds)
+        budget = enforce_timeout_budget(timeout_seconds)
         safe = reject_dangerous_sql(sql)
-        self.connection.execute(f"PRAGMA busy_timeout={int(timeout_seconds * 1000)}")
-        rows = self.connection.execute(safe).fetchall()
-        return [dict(r) for r in rows]
+        deadline = time.monotonic() + budget
+        # busy_timeout only bounds lock waits; progress_handler aborts long statements.
+        self.connection.execute(f"PRAGMA busy_timeout={int(budget * 1000)}")
+
+        def _on_progress() -> int:
+            return 1 if time.monotonic() > deadline else 0
+
+        self.connection.set_progress_handler(_on_progress, 1000)
+        try:
+            rows = self.connection.execute(safe).fetchall()
+            return [dict(r) for r in rows]
+        except sqlite3.OperationalError as exc:
+            if "interrupt" in str(exc).lower():
+                raise TimeoutError(f"query exceeded {budget}s budget") from exc
+            raise
+        finally:
+            self.connection.set_progress_handler(None, 0)

@@ -99,6 +99,28 @@ def test_mcp_sql_tools_are_registered(tmp_path, monkeypatch):
     assert "execute_readonly_sql" in names
     assert "get_customer" in names
     ddl = mcp_server.get_table_schema("users")
-    assert "CREATE TABLE users" in ddl
+    assert "CREATE TABLE" in ddl and "users" in ddl
+    # Second tool call must reuse schema, not fail with "table already exists".
+    ddl_again = mcp_server.get_table_schema("orders")
+    assert "orders" in ddl_again
     blocked = mcp_server.execute_readonly_sql("DELETE FROM users")
     assert "error" in blocked
+    assert "rejected" in blocked.lower()
+
+
+def test_analytics_initialize_is_idempotent(tmp_path):
+    store = AnalyticsStore(tmp_path / "analytics.db")
+    store.initialize()
+    store.initialize()
+    store.seed()
+    rows = store.execute_readonly("SELECT COUNT(*) AS user_count FROM users")
+    assert rows[0]["user_count"] == 3
+
+
+def test_query_budget_aborts_runaway_select(analytics):
+    runaway = (
+        "WITH RECURSIVE t(x) AS (SELECT 1 UNION ALL SELECT x + 1 FROM t) "
+        "SELECT COUNT(*) FROM t"
+    )
+    with pytest.raises(TimeoutError, match="budget"):
+        analytics.execute_readonly(runaway, timeout_seconds=0.05)

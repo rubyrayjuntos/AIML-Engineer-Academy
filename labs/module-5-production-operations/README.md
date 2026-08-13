@@ -27,7 +27,7 @@ python -m app.evidence --output artifacts/evidence.json
 python -m app.canary_lab --mode quality_regression
 ```
 
-Expected: **31 passed**
+Expected: **32 passed**
 
 ## Optional tracks (never enable in Cloud Agent / default CI)
 

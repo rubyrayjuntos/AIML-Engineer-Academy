@@ -111,6 +111,7 @@ def generate(output: Path) -> dict:
             "azure_deployed": False,
             "databricks_deployed": False,
             "huggingface_deployed": False,
+            "huggingface_api_ok": False,
             "render_deployed": False,
             "deepeval_executed": bool(deepeval_plan["claims"]["deepeval_executed"]),
             "promptfoo_executed": False,

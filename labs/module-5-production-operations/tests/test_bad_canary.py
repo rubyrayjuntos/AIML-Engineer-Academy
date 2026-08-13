@@ -29,6 +29,16 @@ def test_canary_regression_gates_detect_delta():
     assert gates["relevancy_delta"] is False
 
 
+def test_mild_quality_regression_blocks_via_delta_not_absolute(tmp_path):
+    store = ReleaseStore(tmp_path / "release.json")
+    result = run_bad_canary_scenario(store, mode="mild_quality_regression")
+    assert result["promotion_blocked"] is True
+    assert result["gates"]["faithfulness"] is True
+    assert result["gates"]["faithfulness_delta"] is False
+    assert result["active"] == "bc-1"
+    assert result["canary_stage"] == "retired"
+
+
 def test_quality_bad_canary_blocks_production_and_rejects(tmp_path):
     store = ReleaseStore(tmp_path / "release.json")
     result = run_bad_canary_scenario(store, mode="quality_regression")

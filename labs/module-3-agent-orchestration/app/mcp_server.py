@@ -12,6 +12,7 @@ from app.store import Store
 mcp = FastMCP("academy-readonly-tools")
 DB_PATH = Path(os.environ.get("CUSTOMER_SUCCESS_DB", "customer_success.db"))
 ANALYTICS_DB_PATH = Path(os.environ.get("ANALYTICS_DB", "analytics.db"))
+_analytics_cache: dict[str, AnalyticsStore] = {}
 
 
 def _store() -> Store:
@@ -21,9 +22,13 @@ def _store() -> Store:
 
 
 def _analytics() -> AnalyticsStore:
-    store = AnalyticsStore(ANALYTICS_DB_PATH)
-    store.initialize()
-    store.seed()
+    path = str(ANALYTICS_DB_PATH)
+    store = _analytics_cache.get(path)
+    if store is None:
+        store = AnalyticsStore(path)
+        store.initialize()
+        store.seed()
+        _analytics_cache[path] = store
     return store
 
 

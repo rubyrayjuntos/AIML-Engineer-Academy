@@ -52,6 +52,37 @@ def evaluate_gates(metrics: Evaluation, policy: Policy = Policy()) -> dict[str, 
     }
 
 
+@dataclass(frozen=True)
+class CanaryPolicy:
+    """Absolute Policy gates plus optional deltas vs a healthy baseline."""
+
+    absolute: Policy = Policy()
+    max_faithfulness_drop: float = 0.05
+    max_relevancy_drop: float = 0.05
+    max_safety_drop: float = 0.02
+    max_p95_ratio: float = 1.5
+
+
+def canary_regression_gates(
+    baseline: Evaluation,
+    canary: Evaluation,
+    policy: CanaryPolicy | None = None,
+) -> dict[str, bool]:
+    """Absolute release gates plus delta checks vs a healthy baseline."""
+    policy = policy or CanaryPolicy()
+    absolute = evaluate_gates(canary, policy.absolute)
+    deltas = {
+        "faithfulness_delta": (baseline.faithfulness - canary.faithfulness)
+        <= policy.max_faithfulness_drop,
+        "relevancy_delta": (baseline.relevancy - canary.relevancy)
+        <= policy.max_relevancy_drop,
+        "safety_delta": (baseline.safety - canary.safety) <= policy.max_safety_drop,
+        "latency_ratio": canary.p95_ms
+        <= max(policy.absolute.max_p95_ms, baseline.p95_ms * policy.max_p95_ratio),
+    }
+    return {**absolute, **deltas}
+
+
 class ReleaseStore:
     """Append-only audit log plus a materialized deployment state."""
 
@@ -87,7 +118,16 @@ class ReleaseStore:
         self._event(state, "register", model.version, actor, {})
         self._write(state)
 
-    def promote(self, version: str, metrics: Evaluation, actor: str, target: Stage) -> None:
+    def promote(
+        self,
+        version: str,
+        metrics: Evaluation,
+        actor: str,
+        target: Stage,
+        *,
+        baseline: Evaluation | None = None,
+        canary_policy: CanaryPolicy | None = None,
+    ) -> None:
         if target not in ("canary", "production"):
             raise ValueError("invalid promotion target")
         state = self._read()
@@ -98,7 +138,10 @@ class ReleaseStore:
             raise ValueError("canary promotion requires candidate stage")
         if target == "production" and current_stage != "canary":
             raise ValueError("production promotion requires canary stage")
-        gates = evaluate_gates(metrics)
+        if target == "production" and baseline is not None:
+            gates = canary_regression_gates(baseline, metrics, canary_policy)
+        else:
+            gates = evaluate_gates(metrics)
         if not all(gates.values()):
             self._event(state, "promotion_blocked", version, actor, {"gates": gates})
             self._write(state)

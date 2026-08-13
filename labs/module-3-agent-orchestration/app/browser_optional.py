@@ -38,9 +38,11 @@ def build_browser_plan() -> dict[str, Any]:
         "claims": {
             "browser_runtime": "stub",
             "playwright_executed": False,
+            "playwright_smoke_title": False,
             "note": (
                 "Default CI uses StubDomRuntime. Set ACADEMY_BROWSER=1 and install "
-                "requirements-browser.txt to attempt a real Playwright session."
+                "requirements-browser.txt to attempt a Chromium title ping. "
+                "playwright_executed stays false unless the Dual-LLM/HITL loop runs."
             ),
         },
     }
@@ -84,9 +86,11 @@ def maybe_run_browser_track(plan: dict[str, Any] | None = None) -> dict[str, Any
             "status": "ran",
             "title": title,
             "fixture": str(fixture),
+            "note": "Chromium title ping only; Dual-LLM/HITL loop stays on StubDomRuntime",
         }
-        plan["claims"]["playwright_executed"] = True
-        plan["claims"]["browser_runtime"] = "playwright"
+        plan["claims"]["playwright_smoke_title"] = True
+        plan["claims"]["playwright_executed"] = False
+        plan["claims"]["browser_runtime"] = "playwright_smoke"
     except Exception as exc:  # noqa: BLE001
         plan["execution"] = {
             "status": "skipped",

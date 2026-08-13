@@ -21,6 +21,7 @@ Useful scripts:
 | Command | Purpose |
 | --- | --- |
 | `npm run lint` | Typecheck SPA + `server.ts` |
+| `npm test` | Vitest unit tests (certificate, quiz lock, progress parse) |
 | `npm run build` | Production Vite + server bundle |
 | `npm run dev` | Express + Vite middleware (development) |
 

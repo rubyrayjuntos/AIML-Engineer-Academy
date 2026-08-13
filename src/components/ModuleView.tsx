@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ModuleData, UserProgress } from '../types';
 import { CodeBlock } from './CodeBlock';
 import { MarkdownContent } from './MarkdownContent';
+import { applyQuizSelection, submitModuleQuiz } from '../quizScoring';
 import { BookOpen, Code2, FlaskConical, CheckSquare, CheckCircle2, Play, ArrowRight, ArrowLeft, MessageSquareText, Wrench, FolderCheck } from 'lucide-react';
 
 interface ModuleViewProps {
@@ -35,16 +36,20 @@ export const ModuleView: React.FC<ModuleViewProps> = ({
   const labConfirmed = Boolean(progress.labCompletions[module.lab.id]);
 
   const handleSelectQuizOption = (quizId: string, optionIdx: number) => {
-    setSelectedAnswers(prev => ({ ...prev, [quizId]: optionIdx }));
+    setSelectedAnswers(prev => applyQuizSelection(prev, quizId, optionIdx, showQuizResults));
   };
 
   const handleSubmitQuiz = () => {
+    const result = submitModuleQuiz(showQuizResults, module.quizzes, selectedAnswers);
+    if (showQuizResults) return;
     setShowQuizResults(true);
-    const answered = module.quizzes.filter(q => selectedAnswers[q.id] !== undefined);
-    if (answered.length === 0) return;
-    const correct = answered.filter(q => selectedAnswers[q.id] === q.answerIndex).length;
-    const scorePercent = Math.round((correct / module.quizzes.length) * 100);
-    onRecordQuizScore(module.id, scorePercent);
+    if (result.scorePercent === null) return;
+    onRecordQuizScore(module.id, result.scorePercent);
+  };
+
+  const handleRetakeQuiz = () => {
+    setShowQuizResults(false);
+    setSelectedAnswers({});
   };
 
   const handlePreviewLab = async () => {
@@ -294,10 +299,10 @@ export const ModuleView: React.FC<ModuleViewProps> = ({
             </div>
 
             <button
-              onClick={handleSubmitQuiz}
+              onClick={showQuizResults ? handleRetakeQuiz : handleSubmitQuiz}
               className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl shadow-md shadow-indigo-200 transition-all"
             >
-              Submit & Check Answers
+              {showQuizResults ? 'Retake Quiz' : 'Submit & Check Answers'}
             </button>
           </div>
 
@@ -326,12 +331,13 @@ export const ModuleView: React.FC<ModuleViewProps> = ({
                           key={optIdx}
                           type="button"
                           aria-pressed={isSelected}
+                          disabled={showQuizResults}
                           onClick={() => handleSelectQuizOption(q.id, optIdx)}
                           className={`w-full text-left p-3 rounded-xl text-xs font-medium transition-all border ${
                             isSelected
                               ? 'bg-indigo-600 text-white border-indigo-600 font-bold ring-2 ring-indigo-300'
                               : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
-                          }`}
+                          } ${showQuizResults ? 'cursor-default' : ''}`}
                         >
                           <span className="font-mono font-bold mr-2 opacity-70">{String.fromCharCode(65 + optIdx)}.</span>
                           {opt}
