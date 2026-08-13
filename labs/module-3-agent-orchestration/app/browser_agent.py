@@ -12,13 +12,25 @@ from app.browser_models import (
 )
 from app.browser_policy import classify_tool, plan_tool
 from app.browser_runtime import BrowserRuntime, StubDomRuntime
+from app.dual_llm import DualLlmFirewall
 
 
 class BrowserAgent:
-    """Least-privilege browser loop with HITL on consequential clicks."""
+    """Least-privilege browser loop with Dual-LLM quarantine + HITL writes."""
 
-    def __init__(self, runtime: BrowserRuntime | None = None):
-        self.runtime = runtime or StubDomRuntime()
+    def __init__(
+        self,
+        runtime: BrowserRuntime | None = None,
+        firewall: DualLlmFirewall | None = None,
+    ):
+        self.firewall = firewall or DualLlmFirewall()
+        if runtime is None:
+            self.runtime = StubDomRuntime(firewall=self.firewall)
+        else:
+            self.runtime = runtime
+            # Share firewall with stub runtimes when possible.
+            if isinstance(self.runtime, StubDomRuntime) and firewall is not None:
+                self.runtime.firewall = self.firewall
         self._pending: BrowserToolCall | None = None
         self._steps: list[BrowserStepResult] = []
 
@@ -52,6 +64,8 @@ class BrowserAgent:
         if decision["requires_hitl"] and approved is True:
             self._pending = None
 
+        # Privileged planner never forwards raw secrets — minimizer + quarantine
+        # happen inside StubDomRuntime.execute via DualLlmFirewall.
         observation = self.runtime.execute(call)
         result = BrowserStepResult(
             action=call.action,
@@ -104,13 +118,18 @@ class BrowserAgent:
             )
         )
 
+        dual_claims = self.firewall.claims()
         claims = {
             "browser_runtime": "stub",
             "playwright_executed": False,
             "hitl_required": wants_write,
             "ipi_detected": any(
                 s.observation and s.observation.ipi_flags for s in self._steps if s.observation
-            ),
+            )
+            or dual_claims.get("ipi_detected", False),
+            "dual_llm_topology_exercised": dual_claims["dual_llm_topology_exercised"],
+            "dual_llm_live_executed": dual_claims["dual_llm_live_executed"],
+            "sanitizer_engine": dual_claims["sanitizer_engine"],
         }
 
         if not wants_write:

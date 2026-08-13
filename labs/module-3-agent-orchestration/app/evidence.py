@@ -9,6 +9,7 @@ from app.agent import CustomerSuccessAgent
 from app.browser_agent import BrowserAgent
 from app.browser_optional import build_browser_plan, maybe_run_browser_track
 from app.dspy_compile import Example, bootstrap_fewshot, metric_exact_select
+from app.dual_llm_optional import build_dual_llm_plan, maybe_run_dual_llm_track
 from app.pydantic_ai_optional import build_live_structured_plan, maybe_run_live_sql
 from app.sql_agent import SqlAgent
 from app.sql_store import AnalyticsStore
@@ -46,6 +47,7 @@ def generate(output: Path) -> dict:
     live_plan = maybe_run_live_sql(build_live_structured_plan())
     browser_result = BrowserAgent().run("Renew ACME license on the vendor portal")
     browser_plan = maybe_run_browser_track(build_browser_plan())
+    dual_llm_plan = maybe_run_dual_llm_track(build_dual_llm_plan())
 
     evidence = {
         "module": "module-3-agent-orchestration",
@@ -86,9 +88,23 @@ def generate(output: Path) -> dict:
                 "claims": browser_plan.get("claims"),
             },
             "note": (
-                "StubDomRuntime micro-lab (allowlist, a11y, IPI quarantine, HITL click). "
+                "StubDomRuntime micro-lab (allowlist, a11y, Dual-LLM IPI quarantine, HITL click). "
                 "Playwright only when ACADEMY_BROWSER=1."
             ),
+        },
+        "dual_llm_lane": {
+            "topology": dual_llm_plan.get("topology"),
+            "gate": dual_llm_plan.get("gate"),
+            "execution": dual_llm_plan.get("execution"),
+            "claims": dual_llm_plan.get("claims"),
+            "browser_claims": {
+                "dual_llm_topology_exercised": browser_result.claims.get(
+                    "dual_llm_topology_exercised"
+                ),
+                "dual_llm_live_executed": browser_result.claims.get("dual_llm_live_executed"),
+                "sanitizer_engine": browser_result.claims.get("sanitizer_engine"),
+            },
+            "entrypoint": "python -m app.dual_llm_optional",
         },
         "dspy_compile_stub": {
             "demo_count": len(compiled.demos),
@@ -113,23 +129,31 @@ def generate(output: Path) -> dict:
                 browser_plan.get("claims", {}).get("playwright_executed")
             ),
             "browser_runtime": browser_result.claims.get("browser_runtime", "stub"),
+            "dual_llm_topology_exercised": bool(
+                browser_result.claims.get("dual_llm_topology_exercised")
+            ),
+            "dual_llm_live_executed": bool(
+                dual_llm_plan.get("claims", {}).get("dual_llm_live_executed")
+            ),
         },
         "persistence": store.load_run("evidence-run"),
         "rubric": [
-            {"competency": "SQLite customer data and FTS retrieval", "points": 7},
-            {"competency": "Grounded citations", "points": 7},
-            {"competency": "Pydantic structured output (deterministic + optional live)", "points": 8},
-            {"competency": "Stateful orchestration", "points": 7},
-            {"competency": "Persistent workflow state", "points": 7},
-            {"competency": "Retry and timeout policy", "points": 6},
-            {"competency": "MCP stdio CS + SQL tools", "points": 8},
-            {"competency": "Read-only SQL firewall and repair loop", "points": 8},
-            {"competency": "Human approval boundary", "points": 7},
-            {"competency": "Browser stub: allowlist, a11y, IPI, HITL", "points": 10},
-            {"competency": "DSPy compile stub + deterministic evidence", "points": 7},
+            {"competency": "SQLite customer data and FTS retrieval", "points": 6},
+            {"competency": "Grounded citations", "points": 6},
+            {"competency": "Pydantic structured output (deterministic + optional live)", "points": 7},
+            {"competency": "Stateful orchestration", "points": 6},
+            {"competency": "Persistent workflow state", "points": 6},
+            {"competency": "Retry and timeout policy", "points": 5},
+            {"competency": "MCP stdio CS + SQL tools", "points": 7},
+            {"competency": "Read-only SQL firewall and repair loop", "points": 7},
+            {"competency": "Human approval boundary", "points": 6},
+            {"competency": "Browser stub: allowlist, a11y, Dual-LLM IPI, HITL", "points": 10},
+            {"competency": "Dual-LLM minimizer + quarantined sanitizer topology", "points": 8},
+            {"competency": "DSPy compile stub + deterministic evidence", "points": 6},
             {"competency": "Claim-safe live structured-output gate", "points": 5},
             {"competency": "Claim-safe browser/Playwright gate", "points": 5},
-            {"competency": "Threat model notes", "points": 8},
+            {"competency": "Claim-safe Dual-LLM live sanitizer gate", "points": 4},
+            {"competency": "Threat model notes", "points": 6},
         ],
         "total_points": 100,
     }
