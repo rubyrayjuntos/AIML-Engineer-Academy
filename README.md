@@ -8,6 +8,16 @@ Interactive training platform for modern AI/ML engineers: curriculum UI, archite
 - **AI Mentor:** xAI Grok via `XAI_API_KEY` (optional; curriculum fallback without a key)
 - **Labs:** `labs/module-1` … `labs/module-5` (isolated per-lab virtualenvs)
 
+## Field atlas (positioning page)
+
+Standalone static page in [`atlas/`](./atlas/): who this is for, what is inside, what not to expect, and a filterable map of CPU-proved vs survey vs optional-live vs thin topics.
+
+```bash
+npm run dev   # then http://localhost:3000/atlas/
+```
+
+Or open `atlas/index.html` without the applet. This is a shared learning-space pitch, not a paid product page. The in-app certificate remains a local keepsake.
+
 ## Quick start (web)
 
 ```bash

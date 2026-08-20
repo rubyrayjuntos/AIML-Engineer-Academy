@@ -37,6 +37,10 @@ jobs:
         working-directory: labs/module-1-foundations
         run: python -m app.leakage_clinic
 
+      - name: Run CPU RAG clinic
+        working-directory: labs/module-1-foundations
+        run: python -m app.rag_clinic
+
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4

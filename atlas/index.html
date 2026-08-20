@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Field atlas — AI/ML Engineer Academy</title>
+    <meta
+      name="description"
+      content="A claim-honest field map of AI/ML engineering: survey the stack, prove a few CPU artifacts, never pretend optional GPU or cloud tracks ran."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=IBM+Plex+Mono:wght@400;500&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <a class="skip" href="#sheet">Skip to map</a>
+
+    <header class="collar">
+      <div class="collar__meta">
+        <span>AI/ML Engineer Academy</span>
+        <span aria-hidden="true">·</span>
+        <span>Sheet 1 of 1</span>
+        <span aria-hidden="true">·</span>
+        <span>Not a credential</span>
+      </div>
+      <h1>Field atlas</h1>
+      <p class="thesis">
+        A free, claim-honest map of AI/ML engineering: survey the production stack, prove a few CPU
+        artifacts with pytest, and never pretend optional GPU or cloud tracks ran.
+      </p>
+      <nav class="toc" aria-label="On this page">
+        <a href="#who">Who</a>
+        <a href="#inside">Inside</a>
+        <a href="#not">Not this</a>
+        <a href="#sheet">The map</a>
+        <a href="#use">How to use</a>
+      </nav>
+    </header>
+
+    <div class="legend" role="toolbar" aria-label="Filter map by depth">
+      <p class="legend__label">Legend — click to filter the sheet</p>
+      <div class="legend__keys">
+        <button type="button" data-depth="proved" aria-pressed="false">
+          <i class="swatch swatch--proved" aria-hidden="true"></i>
+          CPU-proved
+        </button>
+        <button type="button" data-depth="survey" aria-pressed="false">
+          <i class="swatch swatch--survey" aria-hidden="true"></i>
+          Survey
+        </button>
+        <button type="button" data-depth="optional" aria-pressed="false">
+          <i class="swatch swatch--optional" aria-hidden="true"></i>
+          Optional live
+        </button>
+        <button type="button" data-depth="thin" aria-pressed="false">
+          <i class="swatch swatch--thin" aria-hidden="true"></i>
+          Thin on the map
+        </button>
+        <button type="button" data-depth="all" class="legend__all" aria-pressed="true">Show all</button>
+      </div>
+    </div>
+
+    <main>
+      <section id="who" class="split">
+        <article>
+          <h2>Who this is for</h2>
+          <ul class="plain">
+            <li>Software engineers moving toward LLM, RAG, and agent systems who keep hearing terms they have not placed.</li>
+            <li>ML practitioners who can train models but have not seen serving, eval gates, or indirect prompt injection.</li>
+            <li>Staff engineers and managers who review designs and need a shared vocabulary.</li>
+            <li>Study groups and internal enablement: read the map, run the CPU labs, then talk.</li>
+          </ul>
+        </article>
+        <article>
+          <h2>Who should skip it</h2>
+          <ul class="plain">
+            <li>Anyone shopping for a career replacement, a GPU bootcamp, or a vendor certificate.</li>
+            <li>Anyone who needs to ship production RAG, live fine-tunes, or GPU serving from this repo alone.</li>
+            <li>Anyone who wants the in-app certificate treated as a hiring credential. It is a local keepsake.</li>
+          </ul>
+        </article>
+      </section>
+
+      <section id="inside">
+        <h2>What is inside</h2>
+        <p>
+          Five modules, Python labs graded by pytest, and teaching simulators. Every topic is supposed
+          to be one of three things: <strong>CPU-proved</strong> (you run it), <strong>survey</strong>
+          (you can talk about it), or <strong>optional live</strong> (env-gated; CI leaves claims false).
+        </p>
+        <div class="modules">
+          <article>
+            <h3>M1 Foundations</h3>
+            <p>SSE FastAPI, Docker, TF-IDF, leakage clinic, PII mask, CPU RAG cite.</p>
+          </article>
+          <article>
+            <h3>M2 Architectures</h3>
+            <p>NumPy KV/LoRA/MoE/GRPO/DPO/diffusion toys. FlashAttention, MLA, GQA, QLoRA train as survey or optional GPU.</p>
+          </article>
+          <article>
+            <h3>M3 Agents</h3>
+            <p>HITL ReAct, read-only SQL/MCP, Dual-LLM IPI topology. LangGraph and live Playwright optional or survey.</p>
+          </article>
+          <article>
+            <h3>M4 Serving</h3>
+            <p>Authenticated FastAPI, CPU latency budgets, speculative math. vLLM/PagedAttention survey or optional GPU.</p>
+          </article>
+          <article>
+            <h3>M5 Production</h3>
+            <p>Offline eval gates, canary reject, rollback, provider plans. DeepEval/OTel/Ragas survey or optional.</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="not" class="not-this">
+        <h2>What not to expect</h2>
+        <p>
+          This does not make someone able to perform the job. It does not replace shipping systems,
+          on-call, messy data, or stakeholders. Quizzes are multiple choice. Labs are small CPU
+          artifacts. Optional GPU, Playwright, DeepEval, and cloud deploys are off unless you turn
+          them on on hardware you control — and evidence files must not claim they ran if they did not.
+        </p>
+      </section>
+
+      <section id="sheet">
+        <div class="sheet-head">
+          <h2>The map</h2>
+          <p id="filter-status">Showing all topics. Use the legend to isolate a depth.</p>
+        </div>
+        <ul id="map" class="map"></ul>
+      </section>
+
+      <section id="use">
+        <h2>How to use it</h2>
+        <ol class="steps">
+          <li>Read this atlas. Filter the sheet until the legend is clear.</li>
+          <li>Run the applet for theory, quizzes, and simulators.</li>
+          <li>In each lab venv, run pytest. That is the proved column — not the certificate modal.</li>
+          <li>Treat optional tracks as extra, never as the default story.</li>
+        </ol>
+        <p class="enter-wrap">
+          <a class="enter" id="enter-applet" href="/">Open the applet</a>
+          <span id="enter-note" hidden>
+            This file was opened on its own. From the repo: <code>npm run dev</code>, then
+            <a href="http://localhost:3000/atlas/">localhost:3000/atlas/</a> or
+            <a href="http://localhost:3000/">localhost:3000</a> for the applet.
+          </span>
+        </p>
+      </section>
+    </main>
+
+    <footer class="collar collar--foot">
+      <p>
+        Shared learning space. Not a paid product, not a hiring credential, not a complete apprenticeship.
+        The map is the product; the labs are selected soundings.
+      </p>
+    </footer>
+
+    <script src="./app.js" type="module"></script>
+  </body>
+</html>

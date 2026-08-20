@@ -1,8 +1,8 @@
 # Module 1 Foundations Lab
 
 This lab turns the curriculum's Module 1 sandbox into a runnable FastAPI service
-with automated tests, a TF-IDF baseline, a **leakage & metrics clinic**, and a
-production-style Docker build.
+with automated tests, a TF-IDF baseline, a **leakage & metrics clinic** (including
+PII masking), a **CPU RAG micro-lab**, and a production-style Docker build.
 
 ## Run locally
 
@@ -20,7 +20,7 @@ pytest -q
 docker build -t module-1-foundations .
 ```
 
-Expected: **30 passed**.
+Expected: **38 passed**.
 
 ## Run the TF-IDF pipeline (honest path)
 
@@ -45,11 +45,23 @@ Contrasts three failure modes against the honest baseline:
 | Train/test contamination | Train prompts injected into the test set → **inflated** accuracy |
 | Target leakage | `post_outcome_code` (label encoding) → near-perfect macro-F1 until dropped |
 | Preprocess leakage | TF-IDF fit on train+test → vocabulary/IDF differ from train-only fit |
+| PII masking | Email/phone columns flagged; redaction tokens replace raw values |
 | Honest held-out P/R/F1 | Per-class + macro metrics on a clean stratified split |
 
 Detectors live in `app/leakage_clinic.py` (`detect_train_test_overlap`,
 `detect_target_leakage_columns`, `held_out_prf1`). The production path remains
-`app.pipeline.build_pipeline`.
+`app.pipeline.build_pipeline`. Section [5] of the report runs `app.pii_clinic`
+(email/phone detect + redact).
+
+## CPU RAG micro-lab
+
+```bash
+python -m app.rag_clinic
+```
+
+Chunks a tiny policy corpus, retrieves with TF-IDF plus a hashed bag-of-words
+dense score, and requires a `[doc_id]` citation. Claims stay honest:
+`embedding_model_used=false`, `vector_db_used=false`.
 
 ## Create the v1.0.0 release tag
 

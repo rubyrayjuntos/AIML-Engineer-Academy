@@ -22,6 +22,7 @@ from sklearn.metrics import classification_report, precision_recall_fscore_suppo
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 
+from app.pii_clinic import run_pii_pass
 from app.pipeline import clean_text, load_and_clean
 
 _LAB_ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -455,6 +456,7 @@ def run_clinic(
             ),
         },
         "honest_held_out": honest["held_out_prf1"],
+        "pii": run_pii_pass(),
     }
     return findings
 
@@ -493,6 +495,16 @@ def format_clinic_report(findings: dict[str, Any]) -> str:
             f"  {label:12s}  P={scores['precision']:.3f}  R={scores['recall']:.3f}  "
             f"F1={scores['f1-score']:.3f}  n={scores['support']}"
         )
+    pii = findings["pii"]
+    lines.extend(
+        [
+            "",
+            "[5] PII masking (before retrieval / logs)",
+            f"  flagged_columns        = {pii['flagged_columns']}",
+            f"  raw_email_surviving    = {pii['raw_email_surviving']}",
+            f"  finding: {pii['finding']}",
+        ]
+    )
     return "\n".join(lines)
 
 

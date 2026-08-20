@@ -82,6 +82,9 @@ async function startServer() {
 
   app.use(express.json({ limit: '256kb' }));
 
+  const atlasDir = path.join(process.cwd(), 'atlas');
+  app.use('/atlas', express.static(atlasDir, { index: 'index.html', redirect: true, fallthrough: false }));
+
   // API Routes
   app.get('/api/health', (req, res) => {
     res.json({
@@ -133,7 +136,7 @@ You specialize in:
 5. Agent Orchestration (ReAct loops, DSPy, Model Context Protocol / MCP, PydanticAI, LangGraph)
 6. Systems Optimization (vLLM, PagedAttention, Continuous Batching block_size tuning, Disaggregated Prefill/Decode, Speculative Decoding)
 7. Production Security (Indirect Prompt Injection, Dual-LLM firewalls)
-8. Evaluation & CI/CD (EDD, DeepEval, Ragas, Promptfoo, OpenTelemetry)
+8. Evaluation & CI/CD (offline EDD; DeepEval/Promptfoo optional; Ragas at survey level; OpenTelemetry survey)
 
 Keep answers structured with Markdown headings, code blocks (Python/TypeScript/Bash), clear tradeoffs, and bullet points.
 Context module: ${safeContext}`;
@@ -277,7 +280,8 @@ Accuracy: 0.964 | F1-Score: 0.958 | Loss: 0.042`;
   } else {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
-    app.get('*', (req, res) => {
+    app.get('*', (req, res, next) => {
+      if (req.path === '/atlas' || req.path.startsWith('/atlas/')) return next();
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }

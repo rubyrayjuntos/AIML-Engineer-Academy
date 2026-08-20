@@ -7,24 +7,25 @@ export const modulesData: ModuleData[] = [
     tag: 'MODULE 01',
     title: 'Foundational Software Engineering & Machine Learning',
     subtitle: 'Building Deterministic Infrastructure for Probabilistic Systems',
-    description: 'Build async FastAPI SSE services, multi-stage Docker images, and classical TF-IDF pipelines. Practice a leakage & metrics clinic (contamination, target leak, preprocess leak) with honest held-out P/R/F1. Survey gRPC/WebSocket and dense retrieval as theory.',
+    description: 'Build async FastAPI SSE services, multi-stage Docker images, and classical TF-IDF pipelines. Practice a leakage & metrics clinic (contamination, target leak, preprocess leak, PII masking) plus a CPU RAG micro-lab (chunk, hybrid retrieve, cite). Survey gRPC/WebSocket and neural embeddings.',
     estimatedHours: 12,
     prerequisites: ['Python 3.11+', 'Basic REST API concepts', 'Linear Algebra fundamentals'],
     competencyContract: {
       explain: [
         'Async I/O versus compute-bound work; REST vs SSE tradeoffs; gRPC and WebSocket options at survey level (not implemented in lab)',
         'Train/test contamination, target leakage, and preprocess leakage — and why held-out precision/recall/F1 must not include training rows',
-        'Sparse (TF-IDF) feature pipelines versus dense retrieval at survey level; reproducible multi-stage containers'
+        'PII masking before logs/retrieval; neural embedding models and vector databases at survey level (lab dense score is hashed bag-of-words, not a trained encoder)'
       ],
       buildAndDebug: [
         'Build an async FastAPI SSE streaming service',
         'Build a Pandas/scikit-learn cleaning + TF-IDF baseline and report held-out metrics',
-        'Run the leakage & metrics clinic to contrast polluted vs honest evaluation',
+        'Run the leakage & metrics clinic to contrast polluted vs honest evaluation, including PII detect/mask',
+        'Chunk a tiny corpus, hybrid-retrieve with TF-IDF plus a hashed dense score, and require a [doc_id] citation',
         'Validate and containerize the service with a multi-stage Docker build (CPU-oriented; no CUDA toolkit optimization required)'
       ],
       evidenceRequired: [
         'Runnable repository and Dockerfile',
-        'Automated tests plus held-out evaluation report and clinic findings',
+        'Automated tests plus held-out evaluation report, leakage/PII clinic findings, and RAG citation clinic',
         'Semantic version tag for the service/artifact set'
       ]
     },
@@ -32,7 +33,8 @@ export const modulesData: ModuleData[] = [
       'Implement async FastAPI streaming with asyncio and Server-Sent Events (SSE)',
       'Author and validate a multi-stage Dockerfile suitable for local/CI CPU runs',
       'Build a reproducible cleaning + sparse TF-IDF sklearn pipeline with held-out precision/recall/F1',
-      'Detect and demonstrate train/test contamination, target leakage, and TF-IDF fit-on-full-data leakage via the clinic',
+      'Detect and demonstrate train/test contamination, target leakage, and TF-IDF fit-on-full-data leakage via the clinic; mask email/phone PII on a teaching frame',
+      'Chunk a tiny policy corpus, hybrid-retrieve (TF-IDF + hashed bag-of-words), and emit a grounded answer with a [doc_id] citation — not a neural embedding or vector DB',
       'Apply semantic versioning to service and dataset/prompt artifacts'
     ],
     sections: [
@@ -50,8 +52,8 @@ Key infrastructure mandates:
         content: `While pre-trained foundation models abstract away raw feature extraction, classical ML pipelines remain vital for hybrid retrieval and prompt evaluation.
 
 Key principles:
-- **Dense vs. Sparse Vectorization:** Combining TF-IDF/BM25 sparse keyword indices with neural dense embeddings to construct robust hybrid search indices.
-- **Factual Sanitization:** Data cleaning, deduplication, and PII masking before embedding ingestion.
+- **Dense vs. Sparse Vectorization:** Combining TF-IDF/BM25 sparse keyword indices with a dense score. **Lab:** \`python -m app.rag_clinic\` chunks a tiny policy corpus, retrieves with TF-IDF plus a hashed bag-of-words vector, and requires a \`[doc_id]\` citation. Neural encoders and vector databases stay survey-level (\`claims.embedding_model_used=false\`).
+- **Factual Sanitization:** Data cleaning, deduplication, and PII masking before retrieval or logs. **Lab:** leakage clinic section [5] plus \`app/pii_clinic.py\` redacts email/phone on a teaching frame.
 - **Honest held-out metrics:** Precision, recall, and F1 on a stratified test split only — never on rows the model already trained on.
 - **Leakage clinic (lab):** Three failure modes you must recognize:
   1. **Train/test contamination** — identical prompts appear in both splits (or train rows are copied into the test set).
@@ -132,7 +134,8 @@ CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "3000"]
       instructions: [
         'Run the FastAPI SSE service in `app/main.py` (`/health`, `/api/v1/generate/stream`) and `pytest -q`.',
         'Execute `python -m app.pipeline` for the honest TF-IDF + LogReg held-out report.',
-        'Run `python -m app.leakage_clinic` and confirm contamination / target-leak / preprocess-leak findings vs honest P/R/F1.',
+        'Run `python -m app.leakage_clinic` and confirm contamination / target-leak / preprocess-leak / PII findings vs honest P/R/F1.',
+        'Run `python -m app.rag_clinic` and confirm the grounded answer cites `[policy-retention]` with honest embedding/vector-DB claims.',
         'Build the multi-stage Docker image to confirm the CPU runtime path.'
       ],
       validationCommands: [
@@ -142,9 +145,10 @@ CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "3000"]
         'pip install -r requirements.txt',
         'pytest -q',
         'python -m app.pipeline',
-        'python -m app.leakage_clinic'
+        'python -m app.leakage_clinic',
+        'python -m app.rag_clinic'
       ],
-      expectedOutput: '30 passed; clinic prints polluted vs honest accuracy and flags post_outcome_code',
+      expectedOutput: '38 passed; clinic prints polluted vs honest accuracy, flags post_outcome_code, redacts PII; RAG clinic cites [policy-retention]',
       starterCode: {
         id: 'lab1_starter',
         title: 'Leakage Clinic: Detect Target Leak Columns',
@@ -246,6 +250,32 @@ print("leaky F1", findings["target_leakage"]["leaky_macro_f1"])
         answerIndex: 1,
         explanation: 'Target leakage lets the model read the answer through a proxy feature. The clinic’s post_outcome_code demo yields near-perfect F1 until the column is dropped.',
         concept: 'Target Leakage'
+      },
+      {
+        id: 'q1_7',
+        question: 'What must a grounded RAG answer include in the Module 1 CPU clinic?',
+        options: [
+          'A live Pinecone query id proving a hosted vector index ran',
+          'A [doc_id] citation from the retrieved chunk so the claim is inspectable',
+          'A trained sentence-transformer checkpoint hash',
+          'A G-Eval judge score above 0.9'
+        ],
+        answerIndex: 1,
+        explanation: 'The micro-lab retrieves with TF-IDF plus hashed bag-of-words and requires a [doc_id] citation. claims.embedding_model_used and vector_db_used stay false.',
+        concept: 'RAG Citations'
+      },
+      {
+        id: 'q1_8',
+        question: 'Before logging or retrieving customer text, what should the PII clinic do with emails and phone numbers?',
+        options: [
+          'Store them in the TF-IDF vocabulary so lexical match improves',
+          'Detect the columns and redact values (e.g. [REDACTED_EMAIL]) so raw PII does not survive',
+          'Hash them with Python’s built-in hash() and keep the originals beside the hash',
+          'Drop the entire row from training but keep PII in the test split'
+        ],
+        answerIndex: 1,
+        explanation: 'Module 1 pii_clinic flags email/phone columns and substitutes redaction tokens. Masking belongs before retrieval and logs.',
+        concept: 'PII Masking'
       }
     ],
     flashcards: [
@@ -268,7 +298,21 @@ print("leaky F1", findings["target_leakage"]["leaky_macro_f1"])
         term: 'Train/Test & Target Leakage',
         category: 'Classical ML',
         definition: 'Evaluation contamination (train rows in the test set), label-derived features, or fitting preprocessors on the full corpus before splitting — all inflate metrics.',
-        keyTakeaway: 'Module 1 clinic (`python -m app.leakage_clinic`) contrasts polluted vs honest held-out P/R/F1.'
+        keyTakeaway: 'Module 1 clinic (`python -m app.leakage_clinic`) contrasts polluted vs honest held-out P/R/F1 and redacts teaching PII.'
+      },
+      {
+        id: 'fc1_rag',
+        term: 'Hybrid Retrieve + Cite',
+        category: 'RAG',
+        definition: 'Chunk documents, score with sparse TF-IDF plus a hashed bag-of-words dense vector, and require a [doc_id] citation in the grounded answer.',
+        keyTakeaway: 'Module 1 `python -m app.rag_clinic` proves this on CPU. Neural embeddings and vector DBs remain survey-level.'
+      },
+      {
+        id: 'fc1_pii',
+        term: 'PII Masking',
+        category: 'Data Hygiene',
+        definition: 'Detect email/phone (and similar) fields and replace them with redaction tokens before logs, indexes, or prompts ingest the text.',
+        keyTakeaway: 'The leakage clinic’s PII pass is a teaching detector — not a production DLP product.'
       }
     ]
   },
@@ -283,7 +327,7 @@ print("leaky F1", findings["target_leakage"]["leaky_macro_f1"])
     prerequisites: ['Transformer Attention Mechanism $O(N^2)$', 'Matrix Multiplication', 'PyTorch Basics'],
     competencyContract: {
       explain: [
-        'Transformer attention and KV-cache byte math; FlashAttention and MLA ideas at survey level (no kernel and no real MLA compression in lab)',
+        'Transformer attention and KV-cache byte math; FlashAttention, MLA, and GQA ideas at survey level (no kernel and no real MLA/GQA compression in lab)',
         'SFT versus GRPO advantage math and MoE routing mechanics; DualPipe at survey level; DPO as a NumPy loss toy on provided log-probs (not a full RLHF train)',
         'LoRA/int4 numerics versus AWQ/GGUF tradeoffs; diffusion forward + DDIM reverse toys; QLoRA as plan/optional dry-run — not a required real train in CI'
       ],
@@ -323,7 +367,10 @@ print("leaky F1", findings["target_leakage"]["leaky_macro_f1"])
 **DeepSeek MLA Architecture:**
 - **Low-Rank Compression:** Projects high-dimensional key and value vectors into a small latent space vector $\\mathbf{c}_t^{KV}$. During inference, only this compressed vector is stored in KV cache.
 - **Decoupled Rotary Position Embedding (RoPE):** To maintain positional awareness after low-rank projection, MLA decouples RoPE query/key parts $(\\mathbf{q}_{t,i}^R, \\mathbf{k}_t^R)$ and concatenates them to the latent representations.
-- **Memory Impact:** Can substantially reduce KV-cache memory relative to conventional MHA; realized capacity depends on architecture, precision, context length, and serving implementation.`
+- **Memory Impact:** Can substantially reduce KV-cache memory relative to conventional MHA; realized capacity depends on architecture, precision, context length, and serving implementation.
+
+**Grouped-Query Attention (GQA) — the common serving baseline:**
+Most Llama-class stacks do **not** start from full MHA. **GQA** shares a smaller set of key/value heads across many query heads (MQA is the extreme: one KV head). It cuts KV bytes with a simpler change than MLA’s low-rank latent cache. When you read a “KV savings vs MHA” claim, ask: savings versus **MHA or versus GQA**? Lab NumPy still stores full K/V tensors; MLA/GQA compression is survey here.`
       },
       {
         title: '2.3 Reinforcement Learning: DPO and GRPO (DeepSeek-R1)',
@@ -645,6 +692,19 @@ def dpo_loss(logp_w, logp_l, logp_ref_w, logp_ref_l, beta=0.1):
         answerIndex: 1,
         explanation: 'dpo_loss is a NumPy BCE toy on log-probs. Evidence keeps dpo_policy_trained=false unless you train outside the lab.',
         concept: 'DPO Loss'
+      },
+      {
+        id: 'q2_10',
+        question: 'How does Grouped-Query Attention (GQA) typically reduce KV-cache size versus Multi-Head Attention (MHA)?',
+        options: [
+          'By projecting keys and values into a DeepSeek-style latent vector that is the only cached state',
+          'By sharing a smaller number of K/V heads across many query heads so fewer K/V tensors are stored',
+          'By deleting the key cache and recomputing it from disk on every token',
+          'By replacing attention with a fixed bag-of-words hash'
+        ],
+        answerIndex: 1,
+        explanation: 'GQA is the usual Llama-class serving baseline: fewer KV heads, same query heads. MLA is a different compression (low-rank latents). Module 2 lab still uses full K/V NumPy tensors.',
+        concept: 'GQA vs MLA'
       }
     ],
     flashcards: [
@@ -653,7 +713,14 @@ def dpo_loss(logp_w, logp_l, logp_ref_w, logp_ref_l, beta=0.1):
         term: 'Multi-Head Latent Attention (MLA)',
         category: 'LLM Architecture',
         definition: 'An attention mechanism that compresses Key-Value representations into a low-rank latent space, substantially reducing KV-cache demand for compatible architectures.',
-        keyTakeaway: 'Can unlock longer contexts / higher concurrency on DeepSeek-style stacks; measure savings against your baseline attention variant.'
+        keyTakeaway: 'Can unlock longer contexts / higher concurrency on DeepSeek-style stacks; measure savings against your baseline attention variant (often GQA, not full MHA).'
+      },
+      {
+        id: 'fc2_gqa',
+        term: 'Grouped-Query Attention (GQA)',
+        category: 'LLM Architecture',
+        definition: 'An attention variant that shares a smaller number of key/value heads across many query heads, cutting KV-cache bytes versus full MHA.',
+        keyTakeaway: 'Default serving baseline for many Llama-class models. Distinct from MLA’s low-rank latent cache.'
       },
       {
         id: 'fc2_2',
@@ -703,7 +770,7 @@ def dpo_loss(logp_w, logp_l, logp_ref_w, logp_ref_l, beta=0.1):
     prerequisites: ['Module 1 & 2', 'JSON Schema', 'Python Type Hints'],
     competencyContract: {
       explain: [
-        'ReAct loops, DSPy-style prompt compilation (BootstrapFewShot teaching stub), RAG versus fine-tuning, and agent memory',
+        'ReAct loops, DSPy-style prompt compilation (BootstrapFewShot teaching stub), RAG versus fine-tuning, and agent memory (scratchpad vs session vs long-term)',
         'MCP primitives with stdio transport in lab; Streamable HTTP and other remote transports at survey level',
         'Structured-output shapes (Pydantic models / SQLQueryResult / PydanticAI-shaped validation), SQL read-only firewalls/repair, HITL approval; when the optional live Agent path is claim-safe (ACADEMY_LIVE_LLM)',
         'Browser action spaces, a11y vs screenshot observations, Dual-LLM privilege separation (Minimizer + quarantined Sanitizer), HITL writes; live Playwright / live sanitizer LLM as optional only'
@@ -727,7 +794,8 @@ def dpo_loss(logp_w, logp_l, logp_ref_w, logp_ref_l, beta=0.1):
       'Validate tool outputs with Pydantic structured types (SQLQueryResult); optionally run live pydantic_ai when ACADEMY_LIVE_LLM=1 — otherwise survey-level only',
       'Align text-to-SQL with schema tools, read-only execution, and repair loops',
       'Implement Dual-LLM IPI quarantine on the browser lane (Minimizer + quarantined Sanitizer → SafeObservation); treat live Playwright / live sanitizer LLM as optional',
-      'Explain LangGraph-style cyclic state machines and HITL nodes at survey level (no LangGraph code in lab)'
+      'Explain LangGraph-style cyclic state machines and HITL nodes at survey level (no LangGraph code in lab)',
+      'Explain agent memory tiers (scratchpad, session thread, long-term store) and why untrusted retrieval is not “memory”'
     ],
     sections: [
       {
@@ -750,7 +818,9 @@ def dpo_loss(logp_w, logp_l, logp_ref_w, logp_ref_l, beta=0.1):
 | **Knowledge Type** | High-volatility dynamic factual data | Static domain style, syntax & formatting |
 | **Hallucination Risk** | Low (Ground in retrieved evidence) | Higher (Risk of memorizing false facts) |
 | **Update Latency** | Instant (Update Vector Database index) | Slow & Expensive (Retrain model weights) |
-| **Auditability** | High (Direct source citations) | Low (Parametric black-box weights) |`
+| **Auditability** | High (Direct source citations) | Low (Parametric black-box weights) |
+
+**Implement path (Module 1, not this lab):** \`python -m app.rag_clinic\` chunks a tiny corpus, hybrid-retrieves (TF-IDF + hashed bag-of-words), and requires a \`[doc_id]\` citation. Neural embeddings / hosted vector DBs stay survey. This module’s \`RagVsFtEngine\` calculator is a strategy toy — it does not retrieve.`
       },
       {
         title: '3.3 Anthropic Model Context Protocol (MCP)',
@@ -803,6 +873,16 @@ def dpo_loss(logp_w, logp_l, logp_ref_w, logp_ref_l, beta=0.1):
 - Treat every page as **untrusted** (Indirect Prompt Injection). Never feed raw HTML into a privileged planner that holds credentials — use the Dual-LLM quarantine in \`app/dual_llm.py\` (Minimizer + quarantined Sanitizer → \`SafeObservation\`).
 - Prefer allowlisted origins, timeouts, and screenshot redaction. Log every tool call for audit.
 - Flaky selectors and serial click latency dominate reliability; invest in a11y selectors and retries before adding more model IQ.`
+      },
+      {
+        title: '3.6 Agent Memory Tiers (Scratchpad, Session, Long-Term)',
+        content: `“Memory” in agents is several stores with different trust and lifetime — not one vector DB:
+
+- **Scratchpad (in-loop):** The current Thought / Action / Observation trace. Ephemeral, bounded, and the first place IPI text tries to persist. Dual-LLM \`SafeObservation\` is how untrusted page text enters this tier.
+- **Session thread:** Per-user conversation state (the chat blueprint’s session store). Survives turns, still not a knowledge base. Do not treat it as a citation source.
+- **Long-term store:** Indexed policies, tickets, or embeddings. **This is retrieval, not memory.** Module 1’s RAG clinic is the implementable citation path; a hosted vector index is survey-level.
+
+Rule: retrieved chunks stay untrusted (same IPI model as browser pages). Cite \`[doc_id]\`; never promote raw retrieval into the privileged system prompt.`
       }
     ],
     codeExamples: [
@@ -1108,6 +1188,19 @@ assert plan["claims"]["dual_llm_live_executed"] is False
         answerIndex: 1,
         explanation: 'Dual-LLM privilege separation: quarantined sanitizer may read untrusted text but holds no credentials/tools; privileged planner holds tools/HITL but only sees SafeObservation.',
         concept: 'Dual-LLM IPI Quarantine'
+      },
+      {
+        id: 'q3_10',
+        question: 'Which statement about agent memory tiers is correct?',
+        options: [
+          'The current ReAct trace, the chat session store, and a policy index are the same vector table',
+          'Scratchpad is the in-loop trace, session is per-user thread state, and long-term retrieval is a cited knowledge store — not interchangeable',
+          'Long-term memory can be pasted raw into the privileged system prompt because it is trusted',
+          'Session transcripts are valid [doc_id] citations for the Module 1 RAG clinic'
+        ],
+        answerIndex: 1,
+        explanation: 'Treat retrieval as untrusted evidence (cite it). Scratchpad and session state are different lifetimes and trust boundaries.',
+        concept: 'Agent Memory Tiers'
       }
     ],
     flashcards: [
@@ -1159,6 +1252,13 @@ assert plan["claims"]["dual_llm_live_executed"] is False
         category: 'IPI Defense',
         definition: 'Privilege separation where a quarantined sanitizer (no tools/credentials) turns untrusted page text into SafeObservation for a privileged planner that holds tools and HITL — plus a Minimizer that redacts secrets from tool inputs.',
         keyTakeaway: 'Module 3 exercises the topology on CPU (DualLlmFirewall); live sanitizer LLM is optional behind ACADEMY_DUAL_LLM=1.'
+      },
+      {
+        id: 'fc3_8',
+        term: 'Agent Memory Tiers',
+        category: 'Agent Orchestration',
+        definition: 'Scratchpad (in-loop trace), session thread (per-user conversation), and long-term retrieval (cited knowledge). Retrieval is not “memory” and stays untrusted.',
+        keyTakeaway: 'Cite [doc_id] from Module 1 RAG; never dump raw chunks into the privileged planner prompt.'
       }
     ]
   },
@@ -1518,7 +1618,7 @@ print("teaching speedup", round(speculative_speedup(5, 0.7, 0.2, 1.0), 3))
 **Optional tracks (local / paid CI only):**
 - **DeepEval:** Pytest-native metrics behind \`ACADEMY_EVAL=1\` + judge key (\`python -m app.deepeval_optional\`).
 - **Promptfoo:** YAML suite in \`promptfoo/promptfooconfig.yaml\` via \`scripts/run_promptfoo_optional.sh\` when \`ACADEMY_PROMPTFOO=1\`.
-- **Ragas:** Reference-less RAG metrics (curriculum concept; wire similarly when you adopt it).`
+- **Ragas (survey):** Reference-less RAG metrics such as context precision/recall and faithfulness. The **implementable** retrieval check in this academy is Module 1’s citation clinic (\`[doc_id]\` must appear). Do not set any \`claims.ragas_executed\` — there is no Ragas dependency in CI.`
       },
       {
         title: '5.2 LLM-as-a-Judge & G-Eval Mechanics',
@@ -1702,7 +1802,7 @@ print(deployment_plan("huggingface", "models:/risk/1", "staging")["resource"])
           'Nginx rate-limit modules'
         ],
         answerIndex: 0,
-        explanation: 'Ragas focuses on RAG-oriented metrics such as context precision/recall and answer relevancy.',
+        explanation: 'Ragas is a RAG-oriented eval library (context precision/recall, faithfulness). This course surveys it; the required retrieval check is Module 1’s citation clinic, not a Ragas install.',
         concept: 'RAG Evaluation Tools'
       },
       {
